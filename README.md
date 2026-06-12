@@ -103,6 +103,63 @@ sudo ./install-komari.sh
    ```
    The default listening port is `25774`. Access `http://localhost:25774`.
 
+## Upgrade
+
+Upgrading replaces the Komari program only. Your data — the data directory (or the Docker volume), including `komari.db` and all settings — is preserved. Back up your data before upgrading just in case.
+
+### 1. One-click Install Script (systemd)
+
+Re-run the install script and choose `2) 升级 Komari` (Upgrade) from the menu. It stops the service, backs up the current binary, downloads the latest release, and restarts automatically.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/komari-monitor/komari/main/install-komari.sh -o install-komari.sh
+chmod +x install-komari.sh
+sudo ./install-komari.sh
+```
+
+### 2. Docker
+
+Pull the latest image and recreate the container. The data volume is kept, so no data is lost.
+
+```bash
+docker pull ghcr.io/komari-monitor/komari:latest
+docker stop komari && docker rm komari
+docker run -d \
+  -p 25774:25774 \
+  -v $(pwd)/data:/app/data \
+  --name komari \
+  ghcr.io/komari-monitor/komari:latest
+```
+
+If you use docker-compose: `docker compose pull && docker compose up -d`.
+
+### 3. Binary
+
+Download the latest binary from the [GitHub Release page](https://github.com/komari-monitor/komari/releases), replace the running binary, and restart. For a systemd install (default directory `/opt/komari`):
+
+```bash
+cd /opt/komari
+sudo systemctl stop komari
+sudo cp komari komari.bak.$(date +%F)          # back up old binary for rollback
+ARCH=$(uname -m); case "$ARCH" in x86_64) ARCH=amd64;; aarch64) ARCH=arm64;; esac
+sudo curl -fL -o komari \
+  "https://github.com/komari-monitor/komari/releases/latest/download/komari-linux-${ARCH}"
+sudo chmod +x komari
+sudo systemctl start komari
+systemctl status komari --no-pager
+```
+
+To roll back: stop the service, restore `komari.bak.<date>`, and start the service again.
+
+### Upgrading a Forked Build
+
+The install script's "Upgrade" option and the URLs above always pull from the **official** `komari-monitor/komari` releases. If you run your own fork, publish a Release on your fork first — its CI clones the frontend, compiles the binaries, and attaches them to the Release — then upgrade using your fork's asset instead:
+
+- Binary: `https://github.com/<your-user>/komari/releases/download/<tag>/komari-linux-amd64`
+- Docker: `ghcr.io/<your-user>/komari:<tag>`
+
+Do **not** use the install script's built-in Upgrade on a fork: it would overwrite your build with the official release.
+
 ## Frontend Development Guide
 
 [Komari Theme Development Guide | Komari](https://komari-document.pages.dev/dev/theme.html)
