@@ -55,8 +55,11 @@ func publicGetNodesInformation(ctx context.Context, _ *rpc.JsonRpcRequest) (any,
 		if clientList[i].Hidden && !isLogin {
 			continue
 		}
-		clientList[i].IPv4 = ""
-		clientList[i].IPv6 = ""
+		// IP 仅对已登录用户返回；未登录访客一律清空（前端主题再以登录态二次把关）。
+		if !isLogin {
+			clientList[i].IPv4 = ""
+			clientList[i].IPv6 = ""
+		}
 		clientList[i].Remark = ""
 		clientList[i].Version = ""
 		clientList[i].Token = ""
