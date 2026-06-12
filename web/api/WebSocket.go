@@ -22,6 +22,16 @@ func EnableWebSocketCompression(upgrader *websocket.Upgrader) {
 	upgrader.EnableCompression = true
 }
 
+// WithBufferSize 设置 WebSocket 升级时的读写缓冲区大小。
+// 终端等需要传输大块输出（如 vim 全屏重绘、彩色高亮）的场景，
+// 适当增大缓冲区可减少系统调用次数、提升吞吐。
+func WithBufferSize(readBufferSize, writeBufferSize int) WebSocketUpgradeOption {
+	return func(upgrader *websocket.Upgrader) {
+		upgrader.ReadBufferSize = readBufferSize
+		upgrader.WriteBufferSize = writeBufferSize
+	}
+}
+
 func UpgradeWebSocket(c *gin.Context, options ...WebSocketUpgradeOption) (*websocket.Conn, error) {
 	if !IsWebSocketUpgrade(c) {
 		return nil, fmt.Errorf("require websocket upgrade")
