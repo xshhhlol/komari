@@ -33,6 +33,9 @@ const (
 
 func init() {
 	_ = os.MkdirAll("./data/theme", 0755)
+	// 将内置预置主题（如 PurCarte）同步到 ./data/theme，使其随二进制部署自动更新，
+	// 同时保留数据库中的主题个性化设置与当前启用的主题。
+	SyncPreinstalledThemes()
 }
 
 func normalizeHTMLLanguage(language string) string {
