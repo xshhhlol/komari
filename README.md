@@ -104,35 +104,32 @@ sudo ./install-komari.sh
 
 升级只替换 Komari 程序本身，你的数据——数据目录（或 Docker 数据卷），包括 `komari.db` 和所有设置——都会保留。升级前建议先备份数据以防万一。
 
-### 1. 一键安装脚本（systemd）
+### 一键升级脚本（systemd，推荐）
 
-重新运行安装脚本，在菜单中选择 `2) 升级 Komari`。脚本会自动停止服务、备份当前二进制、下载最新版本并重启。
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/komari-monitor/komari/main/install-komari.sh -o install-komari.sh
-chmod +x install-komari.sh
-sudo ./install-komari.sh
-```
-
-### 2. Docker
-
-拉取最新镜像并重建容器。数据卷会保留，不会丢失数据。
+直接运行下面这条命令即可。脚本会自动识别架构、从本仓库最新 Release 拉取对应二进制、备份旧版本、替换并重启服务，**启动失败会自动回滚**：
 
 ```bash
-docker pull ghcr.io/komari-monitor/komari:latest
-docker stop komari && docker rm komari
-docker run -d \
-  -p 25774:25774 \
-  -v $(pwd)/data:/app/data \
-  --name komari \
-  ghcr.io/komari-monitor/komari:latest
+curl -fsSL https://raw.githubusercontent.com/xshhhlol/komari/main/upgrade-komari.sh | sudo bash
 ```
 
-使用 docker-compose 时：`docker compose pull && docker compose up -d`。
+可选环境变量（默认值已适配本 fork 与一键安装脚本的安装方式）：
 
-### 3. 二进制
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `KOMARI_REPO` | `xshhhlol/komari` | 拉取 Release 的仓库 |
+| `KOMARI_INSTALL_DIR` | `/opt/komari` | 安装目录 |
+| `KOMARI_SERVICE` | `komari` | systemd 服务名 |
+| `KOMARI_TAG` | `latest` | 指定 Release 标签 |
 
-从 [GitHub Release 页面](https://github.com/komari-monitor/komari/releases) 下载最新二进制，替换正在运行的二进制后重启。以 systemd 安装（默认目录 `/opt/komari`）为例：
+例如升级到指定版本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xshhhlol/komari/main/upgrade-komari.sh | sudo KOMARI_TAG=1.1 bash
+```
+
+### 手动升级（二进制 + systemd）
+
+从 [Release 页面](https://github.com/xshhhlol/komari/releases) 下载最新二进制，替换后重启（默认目录 `/opt/komari`）：
 
 ```bash
 cd /opt/komari
@@ -140,7 +137,7 @@ sudo systemctl stop komari
 sudo cp komari komari.bak.$(date +%F)          # 备份旧二进制以便回滚
 ARCH=$(uname -m); case "$ARCH" in x86_64) ARCH=amd64;; aarch64) ARCH=arm64;; esac
 sudo curl -fL -o komari \
-  "https://github.com/komari-monitor/komari/releases/latest/download/komari-linux-${ARCH}"
+  "https://github.com/xshhhlol/komari/releases/latest/download/komari-linux-${ARCH}"
 sudo chmod +x komari
 sudo systemctl start komari
 systemctl status komari --no-pager
@@ -148,14 +145,24 @@ systemctl status komari --no-pager
 
 回滚：停止服务，恢复 `komari.bak.<日期>`，再启动服务。
 
-### 升级 Fork 构建版本
+### Docker
 
-安装脚本的“升级”选项以及上面的下载地址都固定指向**官方** `komari-monitor/komari` 的 Release。如果你运行的是自己的 fork，需要先在你的 fork 上发布一个 Release——其 CI 会克隆前端、编译二进制并附加到 Release——然后改用你 fork 的产物升级：
+拉取最新镜像并重建容器（数据卷保留，不会丢数据）：
 
-- 二进制：`https://github.com/<你的用户名>/komari/releases/download/<tag>/komari-linux-amd64`
-- Docker：`ghcr.io/<你的用户名>/komari:<tag>`
+```bash
+docker pull ghcr.io/xshhhlol/komari:latest
+docker stop komari && docker rm komari
+docker run -d \
+  -p 25774:25774 \
+  -v $(pwd)/data:/app/data \
+  --name komari \
+  ghcr.io/xshhhlol/komari:latest
+```
 
-**不要**对 fork 使用安装脚本内置的“升级”功能：它会用官方版本覆盖你的构建。
+使用 docker-compose 时：`docker compose pull && docker compose up -d`。镜像需在发布 Release 时由 CI 推送到 GHCR，并将该 package 设为 public 才能直接拉取。
+
+> [!NOTE]
+> 官方一键安装脚本（`install-komari.sh`）内置的“升级”功能固定从官方 `komari-monitor/komari` 拉取，会覆盖你 fork 的构建。运行本 fork 请使用上面的一键升级脚本或手动方式。
 
 ## 前端开发指南
 
