@@ -90,26 +90,74 @@ if [ "$size" -lt 1000000 ]; then
 fi
 chmod +x "$tmp"
 
-# 停服务 -> 备份 -> 替换 -> 启动
-backup="${BINARY_PATH}.bak.$(date +%Y%m%d_%H%M%S)"
-info "停止服务..."
-systemctl stop "${SERVICE_NAME}.service" 2>/dev/null || true
-info "备份旧二进制 -> ${backup}"
-cp -f "$BINARY_PATH" "$backup"
-info "替换二进制..."
-cp -f "$tmp" "$BINARY_PATH"
-chmod +x "$BINARY_PATH"
-info "启动服务..."
-systemctl start "${SERVICE_NAME}.service"
-
+# ---------------------------------------------------------------------------
+# 关键升级区段（停服务 -> 备份 -> 替换 -> 启动 -> 健康检查 -> 失败回滚）放进
+# 一个「与当前终端会话解耦」的独立进程执行。
+#
+# 原因：若本脚本通过 Komari 网页终端运行，重启 komari 会切断「浏览器↔komari↔
+#       agent↔shell」这条中继；连接一断，本脚本（终端会话的子进程）会被一起
+#       杀掉，导致「停了服务却没装上新版本」而升级失败、面板长期掉线。
+# 做法：把关键区段写入临时脚本，优先用 systemd-run 放进独立 cgroup 运行；即便
+#       当前连接断开，升级也能继续跑完。下载/校验仍在前台执行，便于看到错误。
+# ---------------------------------------------------------------------------
+runner="$(mktemp /tmp/komari-upgrade-runner.XXXXXX.sh)"
+cat > "$runner" <<RUNNER
+#!/usr/bin/env bash
+set -uo pipefail
+SERVICE_NAME='${SERVICE_NAME}'
+BINARY_PATH='${BINARY_PATH}'
+NEW_BIN='${tmp}'
+RUNNER_SELF='${runner}'
+# 稍等，让前台提示信息先送达网页终端，再开始停服务（停服务会断开连接）
+sleep 1
+backup="\${BINARY_PATH}.bak.\$(date +%Y%m%d_%H%M%S)"
+echo "停止服务..."
+systemctl stop "\${SERVICE_NAME}.service" 2>/dev/null || true
+echo "备份旧二进制 -> \${backup}"
+cp -f "\${BINARY_PATH}" "\${backup}"
+echo "替换二进制..."
+cp -f "\${NEW_BIN}" "\${BINARY_PATH}"
+chmod +x "\${BINARY_PATH}"
+echo "启动服务..."
+systemctl start "\${SERVICE_NAME}.service"
 sleep 2
-if systemctl is-active --quiet "${SERVICE_NAME}.service"; then
-  ok "✅ 升级成功，服务运行中。"
-  info "如需回滚：systemctl stop ${SERVICE_NAME} && cp '${backup}' '${BINARY_PATH}' && systemctl start ${SERVICE_NAME}"
+if systemctl is-active --quiet "\${SERVICE_NAME}.service"; then
+  echo "✅ 升级成功，服务运行中。"
+  echo "如需回滚：systemctl stop \${SERVICE_NAME} && cp '\${backup}' '\${BINARY_PATH}' && systemctl start \${SERVICE_NAME}"
 else
-  err "❌ 服务启动失败，正在回滚到备份..."
-  cp -f "$backup" "$BINARY_PATH"
-  systemctl start "${SERVICE_NAME}.service" || true
-  err "已回滚。请查看日志排查：journalctl -u ${SERVICE_NAME} -n 50 --no-pager"
-  exit 1
+  echo "❌ 服务启动失败，正在回滚到备份..."
+  cp -f "\${backup}" "\${BINARY_PATH}"
+  systemctl start "\${SERVICE_NAME}.service" || true
+  echo "已回滚。请查看日志排查：journalctl -u \${SERVICE_NAME} -n 50 --no-pager"
 fi
+rm -f "\${NEW_BIN}" "\${RUNNER_SELF}"
+RUNNER
+chmod +x "$runner"
+
+# 下载已完成，临时二进制交由分离进程接管，撤销本进程的清理陷阱
+trap - EXIT
+
+if [ "${KOMARI_NO_DETACH:-0}" = "1" ]; then
+  # 显式要求内联执行（普通 SSH 下想看完整输出时用）
+  info "以内联模式执行升级（KOMARI_NO_DETACH=1）..."
+  bash "$runner"
+  exit $?
+fi
+
+if command -v systemd-run >/dev/null 2>&1; then
+  systemctl reset-failed komari-upgrade >/dev/null 2>&1 || true
+  if systemd-run --unit=komari-upgrade --collect bash "$runner" >/dev/null 2>&1; then
+    ok "✅ 升级已在后台独立进程启动（systemd 瞬态单元 komari-upgrade）。"
+    info "本终端连接随后会断开（重启服务所致），属正常现象，升级会继续完成。"
+    info "查看进度：journalctl -u komari-upgrade -f"
+    exit 0
+  fi
+  warn "systemd-run 启动失败，回退到 setsid 后台执行..."
+fi
+
+# 回退方案：脱离当前会话与控制终端
+setsid bash "$runner" >/var/log/komari-upgrade.log 2>&1 </dev/null &
+ok "✅ 升级已在后台运行（setsid）。"
+info "本终端连接随后可能断开，属正常现象，升级会继续完成。"
+info "查看进度：tail -f /var/log/komari-upgrade.log"
+exit 0
