@@ -41,12 +41,13 @@ func init() {
 
 func adminAddPingTask(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
 	var params struct {
-		Clients   []string `json:"clients"`
-		DefaultOn bool     `json:"default_on"`
-		Name      string   `json:"name"`
-		Target    string   `json:"target"`
-		TaskType  string   `json:"type"`
-		Interval  int      `json:"interval"`
+		Clients    []string `json:"clients"`
+		DefaultOn  bool     `json:"default_on"`
+		Name       string   `json:"name"`
+		Target     string   `json:"target"`
+		TaskType   string   `json:"type"`
+		Interval   int      `json:"interval"`
+		BlockCheck bool     `json:"block_check"`
 	}
 	req.BindParams(&params)
 	if params.Name == "" || params.Target == "" || params.TaskType == "" || params.Interval == 0 {
@@ -55,7 +56,7 @@ func adminAddPingTask(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.Jso
 	if !params.DefaultOn && len(params.Clients) == 0 {
 		return nil, rpc.MakeError(rpc.InvalidParams, "clients is required when default_on is false", nil)
 	}
-	taskID, err := tasks.AddPingTask(params.Clients, params.DefaultOn, params.Name, params.Target, params.TaskType, params.Interval)
+	taskID, err := tasks.AddPingTask(params.Clients, params.DefaultOn, params.Name, params.Target, params.TaskType, params.Interval, params.BlockCheck)
 	if err != nil {
 		return nil, rpc.MakeError(rpc.InternalError, err.Error(), nil)
 	}

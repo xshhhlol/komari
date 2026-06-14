@@ -10,16 +10,17 @@ import (
 )
 
 // AddPingTask 创建延迟监测任务。defaultOn 表示新加入的服务器是否自动开启此监测。
-func AddPingTask(clients []string, defaultOn bool, name string, target, task_type string, interval int) (uint, error) {
+func AddPingTask(clients []string, defaultOn bool, name string, target, task_type string, interval int, blockCheck bool) (uint, error) {
 	db := dbcore.GetDBInstance()
 	normalizedClients := normalizePingClients(models.StringArray(clients))
 	task := models.PingTask{
-		Clients:   normalizedClients,
-		DefaultOn: defaultOn,
-		Name:      name,
-		Type:      task_type,
-		Target:    target,
-		Interval:  interval,
+		Clients:    normalizedClients,
+		DefaultOn:  defaultOn,
+		Name:       name,
+		Type:       task_type,
+		Target:     target,
+		Interval:   interval,
+		BlockCheck: blockCheck,
 	}
 	err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&task).Error; err != nil {
@@ -67,6 +68,7 @@ func EditPingTask(tasks []*models.PingTask) error {
 			"type":        task.Type,
 			"target":      task.Target,
 			"interval":    task.Interval,
+			"block_check": task.BlockCheck,
 		}
 		result := db.Model(&models.PingTask{}).Where("id = ?", task.Id).Updates(updates)
 		if result.RowsAffected == 0 {
@@ -198,6 +200,20 @@ func AddDefaultOnClientUUID(uuid string) error {
 		return ReloadPingSchedule()
 	}
 	return nil
+}
+
+// GetRecentPingRecords 返回指定任务集合在 since 之后的全部记录，按时间倒序。
+// 用于"被墙"判定：对每个 (client, task) 取倒序后的首条即最新一条结果。
+func GetRecentPingRecords(taskIds []uint, since time.Time) ([]models.PingRecord, error) {
+	var records []models.PingRecord
+	if len(taskIds) == 0 {
+		return records, nil
+	}
+	db := dbcore.GetDBInstance()
+	if err := db.Where("task_id IN ? AND time >= ?", taskIds, since).Order("time DESC").Find(&records).Error; err != nil {
+		return nil, err
+	}
+	return records, nil
 }
 
 func GetPingRecords(uuid string, taskId int, start, end time.Time) ([]models.PingRecord, error) {

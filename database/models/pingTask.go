@@ -19,6 +19,7 @@ type PingTask struct {
 	Type      string      `json:"type" gorm:"type:varchar(12);not null;default:'icmp'"`        // icmp tcp http
 	Target    string      `json:"target" gorm:"type:varchar(255);not null"`                    // Ping 目标地址
 	Interval  int         `json:"interval" gorm:"type:int;not null;default:60"`                // 间隔时间
+	BlockCheck bool       `json:"block_check" gorm:"column:block_check;not null;default:false"` // 是否作为"被墙"判定的国内参照目标：纳入的任务若对某节点全部超时，则该节点判为被墙
 }
 
 // AppliesToClient 判断当前 PingTask 是否适用于指定服务器。

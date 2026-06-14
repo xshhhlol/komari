@@ -49,6 +49,7 @@ func publicGetNodesInformation(ctx context.Context, _ *rpc.JsonRpcRequest) (any,
 	if err != nil {
 		return nil, rpc.MakeError(rpc.InternalError, "Failed to retrieve client information: "+err.Error(), nil)
 	}
+	blockedMap := computeCnBlockedMap()
 	isLogin := isLoginFromCtx(ctx)
 	j := 0
 	for i := 0; i < len(clientList); i++ {
@@ -63,11 +64,89 @@ func publicGetNodesInformation(ctx context.Context, _ *rpc.JsonRpcRequest) (any,
 		clientList[i].Remark = ""
 		clientList[i].Version = ""
 		clientList[i].Token = ""
+		clientList[i].CnBlocked = blockedMap[clientList[i].UUID]
 		clientList[j] = clientList[i]
 		j++
 	}
 	clientList = clientList[:j]
 	return clientList, nil
+}
+
+// computeCnBlockedMap 计算每个节点是否"被墙"：
+// 取所有 block_check=true 的 ping 任务（国内参照目标），对每个节点，
+// 若它适用的此类任务在近窗口内都有最新记录、且这些最新记录全部为 -1（超时），则判为被墙。
+// 严格口径：任一国内任务能 ping 通、或缺少最新数据，都不判被墙，尽量避免误报。
+// 任一环节出错时返回空 map（即全部视为未被墙），不影响节点列表本身。
+func computeCnBlockedMap() map[string]bool {
+	result := map[string]bool{}
+	allTasks, err := tasks.GetAllPingTasks()
+	if err != nil {
+		return result
+	}
+	blockTaskIDs := make([]uint, 0)
+	taskClients := map[uint]models.StringArray{}
+	maxInterval := 60
+	for _, t := range allTasks {
+		if !t.BlockCheck {
+			continue
+		}
+		blockTaskIDs = append(blockTaskIDs, t.Id)
+		taskClients[t.Id] = t.Clients
+		if t.Interval > maxInterval {
+			maxInterval = t.Interval
+		}
+	}
+	if len(blockTaskIDs) == 0 {
+		return result
+	}
+
+	// 窗口取最大间隔的 3 倍，至少 5 分钟，容忍上报抖动/丢点。
+	lookback := time.Duration(maxInterval) * 3 * time.Second
+	if lookback < 5*time.Minute {
+		lookback = 5 * time.Minute
+	}
+	recs, err := tasks.GetRecentPingRecords(blockTaskIDs, time.Now().Add(-lookback))
+	if err != nil {
+		return result
+	}
+
+	// recs 已按 time DESC，每个 (client, task) 首次出现即为最新一条。
+	type clientTask struct {
+		client string
+		task   uint
+	}
+	latest := map[clientTask]int{}
+	for _, r := range recs {
+		key := clientTask{r.Client, r.TaskId}
+		if _, ok := latest[key]; !ok {
+			latest[key] = r.Value
+		}
+	}
+
+	// client -> 适用的 block 任务列表
+	applicable := map[string][]uint{}
+	for taskID, cls := range taskClients {
+		for _, c := range cls {
+			applicable[c] = append(applicable[c], taskID)
+		}
+	}
+	for client, taskIDs := range applicable {
+		if len(taskIDs) == 0 {
+			continue
+		}
+		blocked := true
+		for _, tid := range taskIDs {
+			v, ok := latest[clientTask{client, tid}]
+			if !ok || v != -1 { // 缺最新数据，或有一条 ping 通 → 不判被墙
+				blocked = false
+				break
+			}
+		}
+		if blocked {
+			result[client] = true
+		}
+	}
+	return result
 }
 
 func publicGetPublicSettings(ctx context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {

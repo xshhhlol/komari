@@ -41,6 +41,8 @@ type Client struct {
 	TrafficLimitType string    `json:"traffic_limit_type" gorm:"type:varchar(10);default:'max'"` // 流量阈值类型：sum max min up down
 	CreatedAt        LocalTime `json:"created_at"`
 	UpdatedAt        LocalTime `json:"updated_at"`
+	// CnBlocked 为计算字段（不入库）：该节点对所有"被墙判定"国内 ping 任务的最新结果是否全部超时。
+	CnBlocked bool `json:"cn_blocked" gorm:"-"`
 }
 
 // User represents an authenticated user
