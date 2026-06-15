@@ -60,6 +60,17 @@ func init() {
 		},
 		Returns: "{ token: string }",
 	})
+	RegisterWithGroupAndMeta("installClientViaSSH", rpc.RoleAdmin, adminInstallClientViaSSH, &rpc.MethodMeta{
+		Name:    "admin:installClientViaSSH",
+		Summary: "SSH into the target server (password auth) and install the agent for this client",
+		Params: []rpc.ParamMeta{
+			{Name: "uuid", Type: "string", Required: true, Description: "Client UUID"},
+			{Name: "host", Type: "string", Required: true, Description: "Target server IP/host"},
+			{Name: "password", Type: "string", Required: true, Description: "SSH password (root)"},
+			{Name: "endpoint", Type: "string", Required: false, Description: "Panel origin fallback when script domain unset"},
+		},
+		Returns: "{ success: bool, exitCode: int, log: string, error?: string }",
+	})
 	RegisterWithGroupAndMeta("clearRecords", rpc.RoleAdmin, adminClearRecords, &rpc.MethodMeta{
 		Name:    "admin:clearRecords",
 		Summary: "Delete all load records",
