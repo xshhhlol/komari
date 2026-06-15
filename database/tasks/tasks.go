@@ -83,6 +83,15 @@ func DeleteTaskByTaskId(taskId string) error {
 	return dbcore.GetDBInstance().Where("task_id = ?", taskId).Delete(&models.Task{}).Error
 }
 
+// UpdateTaskResultProgress 仅更新进行中任务的输出（不动 exit_code / finished_at），
+// 供 agent 增量上报「近实时」输出使用。
+func UpdateTaskResultProgress(taskId, clientId, result string) error {
+	return dbcore.GetDBInstance().
+		Model(&models.TaskResult{}).
+		Where("task_id = ? AND client = ?", taskId, clientId).
+		Update("result", result).Error
+}
+
 func SaveTaskResult(taskId, clientId, result string, exitCode int, timestamp models.LocalTime) error {
 	return dbcore.GetDBInstance().
 		Model(&models.TaskResult{}).

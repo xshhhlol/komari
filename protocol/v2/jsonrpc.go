@@ -69,6 +69,7 @@ type PullParams struct {
 type ExecParams struct {
 	TaskID  string `json:"task_id"`
 	Command string `json:"command"`
+	Timeout int    `json:"timeout,omitempty"` // 单条命令最长运行秒数（0=用 agent 默认）
 }
 
 type PingParams struct {

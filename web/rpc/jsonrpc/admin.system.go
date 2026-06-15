@@ -144,6 +144,7 @@ func adminExec(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcE
 	var params struct {
 		Command string   `json:"command"`
 		Clients []string `json:"clients"`
+		Timeout int      `json:"timeout"` // 单条命令最长运行秒数（0=用 agent 默认）
 	}
 	req.BindParams(&params)
 	if strings.TrimSpace(params.Command) == "" {
@@ -177,10 +178,11 @@ func adminExec(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcE
 			Message string `json:"message"`
 			Command string `json:"command"`
 			TaskId  string `json:"task_id"`
-		}{Message: "exec", Command: params.Command, TaskId: taskId}
+			Timeout int    `json:"timeout,omitempty"`
+		}{Message: "exec", Command: params.Command, TaskId: taskId, Timeout: params.Timeout}
 		payload, _ := json.Marshal(legacy)
 		if agent_runtime.IsV2Client(uuid) {
-			payload, _ = json.Marshal(v2.Request{JSONRPC: v2.Version, Method: v2.MethodAgentExec, Params: v2.ExecParams{TaskID: taskId, Command: params.Command}})
+			payload, _ = json.Marshal(v2.Request{JSONRPC: v2.Version, Method: v2.MethodAgentExec, Params: v2.ExecParams{TaskID: taskId, Command: params.Command, Timeout: params.Timeout}})
 		}
 		client := agent_runtime.GetConnectedClients()[uuid]
 		if client == nil {
@@ -191,7 +193,7 @@ func adminExec(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcE
 		}
 	}
 	for _, uuid := range queuedClients {
-		agent_runtime.DispatchV2Event(uuid, v2.MethodAgentExec, v2.ExecParams{TaskID: taskId, Command: params.Command})
+		agent_runtime.DispatchV2Event(uuid, v2.MethodAgentExec, v2.ExecParams{TaskID: taskId, Command: params.Command, Timeout: params.Timeout})
 	}
 	actor, ip := auditActor(ctx)
 	auditlog.Log(ip, actor, "REC, task id: "+taskId, "warn")

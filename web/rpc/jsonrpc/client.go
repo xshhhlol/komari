@@ -71,15 +71,27 @@ func clientTaskResult(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.J
 		return nil, rpc.MakeError(rpc.InvalidParams, "Invalid or missing token", nil)
 	}
 	var params struct {
-		TaskId     string    `json:"task_id"`
-		Result     string    `json:"result"`
-		ExitCode   int       `json:"exit_code"`
-		FinishedAt time.Time `json:"finished_at"`
+		TaskId     string     `json:"task_id"`
+		Result     string     `json:"result"`
+		ExitCode   *int       `json:"exit_code"`
+		FinishedAt *time.Time `json:"finished_at"`
 	}
 	if err := req.BindParams(&params); err != nil {
 		return nil, rpc.MakeError(rpc.InvalidParams, "Invalid request", nil)
 	}
-	if err := tasks.SaveTaskResult(params.TaskId, uuid, params.Result, params.ExitCode, models.FromTime(params.FinishedAt)); err != nil {
+	// finished_at 为空 = 进行中的增量输出：只更新 result，保持「未完成」状态，
+	// 前端轮询即可看到输出滚动增长（近实时）。
+	if params.FinishedAt == nil {
+		if err := tasks.UpdateTaskResultProgress(params.TaskId, uuid, params.Result); err != nil {
+			return nil, rpc.MakeError(rpc.InternalError, "Failed to update task progress: "+err.Error(), nil)
+		}
+		return map[string]any{"status": "success", "message": "Task progress updated"}, nil
+	}
+	exitCode := 0
+	if params.ExitCode != nil {
+		exitCode = *params.ExitCode
+	}
+	if err := tasks.SaveTaskResult(params.TaskId, uuid, params.Result, exitCode, models.FromTime(*params.FinishedAt)); err != nil {
 		return nil, rpc.MakeError(rpc.InternalError, "Failed to update task result: "+err.Error(), nil)
 	}
 	return map[string]any{"status": "success", "message": "Task result updated successfully"}, nil
