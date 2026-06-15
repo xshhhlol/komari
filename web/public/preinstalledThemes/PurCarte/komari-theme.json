@@ -112,7 +112,7 @@
                 "key": "tagDefaultColorList",
                 "name": "标签默认颜色列表",
                 "type": "string",
-                "default": "ruby,gray,gold,bronze,brown,yellow,amber,orange,tomato,red",
+                "default": "iris,jade,blue,amber,tomato,cyan,plum,grass,orange,pink,teal,violet",
                 "help": "标签默认颜色列表，展示的标签将按顺序调用该颜色池，逗号分隔（可用的颜色列表请参考：https://www.radix-ui.com/themes/docs/theme/color，改完没有生效则说明填写有误）"
             },
             {
