@@ -57,8 +57,17 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// 登录失败限流：同一来源 IP 连续失败过多则在窗口内拒绝，挡住在线爆破。
+	clientIP := c.ClientIP()
+	if isLoginLocked(clientIP) {
+		auditlog.Log(clientIP, "", "login blocked: too many failed attempts", "login")
+		api.RespondError(c, http.StatusTooManyRequests, "Too many failed login attempts, please try again later")
+		return
+	}
+
 	uuid, success := accounts.CheckPassword(data.Username, data.Password)
 	if !success {
+		recordLoginFailure(clientIP)
 		api.RespondError(c, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
@@ -70,10 +79,13 @@ func Login(c *gin.Context) {
 			return
 		}
 		if ok, err := accounts.Verify2Fa(uuid, data.TwoFa); err != nil || !ok {
+			recordLoginFailure(clientIP)
 			api.RespondError(c, http.StatusUnauthorized, "Invalid 2FA code")
 			return
 		}
 	}
+	// 登录成功，清除该 IP 的失败计数。
+	resetLoginFailures(clientIP)
 	// Create session
 	session, err := accounts.CreateSession(uuid, sessionCookieMaxAge, c.Request.UserAgent(), c.ClientIP(), "password")
 	if err != nil {
