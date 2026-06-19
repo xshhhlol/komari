@@ -32,6 +32,8 @@ type Settings struct {
 	// 自定义美化
 	CustomHead string `json:"custom_head" default:""`
 	CustomBody string `json:"custom_body" default:""`
+	// 标签全局显示顺序（";" 分隔的标签名）；前端筛选/选择按此排序，未列出的标签按字母序追加在后
+	TagOrder string `json:"tag_order" default:""`
 	// 通知
 	NotificationEnabled        bool    `json:"notification_enabled" default:"true"` // 通知总开关
 	NotificationMethod         string  `json:"notification_method" default:"none"`
@@ -72,6 +74,7 @@ const (
 	CloudflareTunnelTokenKey      = "cloudflare_tunnel_token"
 	CustomHeadKey                 = "custom_head"
 	CustomBodyKey                 = "custom_body"
+	TagOrderKey                   = "tag_order"
 	NotificationEnabledKey        = "notification_enabled"
 	NotificationMethodKey         = "notification_method"
 	NotificationTemplateKey       = "notification_template"

@@ -131,6 +131,7 @@ func GetPublicInfo() (map[string]interface{}, error) {
 		"description":               cst.Description,
 		"custom_head":               cst.CustomHead,
 		"custom_body":               cst.CustomBody,
+		"tag_order":                 cst.TagOrder,
 		"oauth_enable":              cst.OAuthEnabled,
 		"oauth_provider":            cst.OAuthProvider,
 		"disable_password_login":    cst.DisablePasswordLogin,
