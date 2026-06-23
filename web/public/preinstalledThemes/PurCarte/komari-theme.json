@@ -300,6 +300,14 @@
                 "help": "启用后默认显示 SWAP 信息"
             },
             {
+                "key": "speedUnit",
+                "name": "网络速率显示单位",
+                "type": "select",
+                "options": "bytes,bits",
+                "default": "bytes",
+                "help": "选择网络速率的显示单位：bytes 为字节（KB/s、MB/s，按 1024 进制）；bits 为比特（Kbps、Mbps，按 1000 进制）。两者相差约 8 倍，运营商带宽通常以 bits（Mbps）标称"
+            },
+            {
                 "key": "pingChartTimeInPreview",
                 "name": "预览详情的延迟图表时间范围",
                 "type": "number",
