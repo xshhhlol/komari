@@ -3,6 +3,7 @@ package messageSender
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"log"
 	"strings"
 	"sync"
@@ -69,6 +70,17 @@ func Initialize() {
 	LoadProvider(NotificationMethod, senderConfig.Addition)
 }
 
+// SupportsHTML 报告当前通知渠道是否按 HTML 解析消息体。
+// 通知内容据此决定用 <code> 之类的标签排版，还是退回纯文本。
+func SupportsHTML() bool {
+	provider := CurrentProvider()
+	if provider == nil {
+		return false
+	}
+	htmlSender, ok := provider.(factory.IHTMLMessageSender)
+	return ok && htmlSender.SupportsHTMLMessage()
+}
+
 func SendTextMessage(message string, title string) error {
 	if CurrentProvider() == nil {
 		return fmt.Errorf("message sender provider is not initialized")
@@ -124,7 +136,7 @@ func SendEvent(event models.EventMessage) error {
 	// 如果没有实现,使用模板格式化为文本消息
 	messageTemplate := cfg[config.NotificationTemplateKey].(string)
 
-	messageTemplate = parseTemplate(messageTemplate, event)
+	messageTemplate = parseTemplate(messageTemplate, event, SupportsHTML())
 
 	for i := 0; i < 3; i++ {
 		err = CurrentProvider().SendTextMessage(messageTemplate, event.Event)
@@ -137,7 +149,12 @@ func SendEvent(event models.EventMessage) error {
 	return err
 }
 
-func parseTemplate(messageTemplate string, event models.EventMessage) string {
+// parseTemplate 把事件填进用户配置的通知模板。
+// asHTML 为真时（渠道按 HTML 解析消息体），转义各占位符填入的值——
+// 节点名里的 < & 会让 Telegram 整条消息解析失败。模板本身不转义，
+// 用户仍可在模板里写 HTML；{{message}} 也不转义，那是各通知器自己
+// 排好的正文（例如被墙通知里点击可复制的 <code> IP）。
+func parseTemplate(messageTemplate string, event models.EventMessage, asHTML bool) string {
 	// Aggregate client names. If Name is empty, fall back to UUID.
 	clientNames := make([]string, 0, len(event.Clients))
 	for _, c := range event.Clients {
@@ -150,10 +167,17 @@ func parseTemplate(messageTemplate string, event models.EventMessage) string {
 	}
 	joinedClients := strings.Join(clientNames, ", ")
 
+	escape := func(s string) string {
+		if !asHTML {
+			return s
+		}
+		return html.EscapeString(s)
+	}
+
 	replaceMap := map[string]string{
-		"{{event}}":   event.Event,
-		"{{client}}":  joinedClients,
-		"{{time}}":    event.Time.Format(time.RFC3339),
+		"{{event}}":   escape(event.Event),
+		"{{client}}":  escape(joinedClients),
+		"{{time}}":    escape(event.Time.Format(time.RFC3339)),
 		"{{message}}": event.Message,
 		"{{emoji}}":   event.Emoji,
 	}

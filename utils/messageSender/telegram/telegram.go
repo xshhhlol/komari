@@ -22,6 +22,11 @@ func (t *TelegramSender) GetConfiguration() factory.Configuration {
 	return &t.Addition
 }
 
+// SupportsHTMLMessage 表示消息以 parse_mode=HTML 发送。
+func (t *TelegramSender) SupportsHTMLMessage() bool {
+	return true
+}
+
 func (t *TelegramSender) Init() error {
 	// 初始化逻辑，如果需要的话
 	return nil
@@ -87,3 +92,4 @@ func init() {
 
 // 确保实现了 IMessageSender 接口
 var _ factory.IMessageSender = (*TelegramSender)(nil)
+var _ factory.IHTMLMessageSender = (*TelegramSender)(nil)

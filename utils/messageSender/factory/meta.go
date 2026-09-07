@@ -16,6 +16,14 @@ type IEventMessageSender interface {
 	SendEvent(event models.EventMessage) error
 }
 
+// IHTMLMessageSender 是可选接口，实现则表示该渠道的消息体按 HTML 解析，
+// 通知内容可以使用 <b>、<code> 等标签排版。
+// 注意：邮件渠道仅在正文含 <html>/<!doctype>/<div> 时才按 HTML 发送，
+// 因此不属于这一类，零散的标签在那里会被原样显示。
+type IHTMLMessageSender interface {
+	SupportsHTMLMessage() bool
+}
+
 type Configuration interface{}
 
 type MessageSenderConstructor func() IMessageSender

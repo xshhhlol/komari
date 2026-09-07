@@ -1,7 +1,7 @@
 package notifier
 
 import (
-	"fmt"
+	"html"
 	"log"
 	"strings"
 	"sync"
@@ -83,43 +83,6 @@ func CheckCnBlocked() {
 	sendCnBlockEvent(messageevent.CnUnblocked, "✅", recoveredUUIDs, byUUID)
 }
 
-// sendCnBlockEvent 组装并发送一条聚合通知（同一轮内的多个节点合并为一条消息）。
-func sendCnBlockEvent(event, emoji string, uuids []string, byUUID map[string]models.Client) {
-	if len(uuids) == 0 {
-		return
-	}
-	involved := make([]models.Client, 0, len(uuids))
-	lines := make([]string, 0, len(uuids))
-	for _, uuid := range uuids {
-		client, ok := byUUID[uuid]
-		if !ok {
-			continue
-		}
-		involved = append(involved, client)
-		name := client.Name
-		if strings.TrimSpace(name) == "" {
-			name = client.UUID
-		}
-		if client.IPv4 != "" {
-			lines = append(lines, fmt.Sprintf("• %s (%s)", name, client.IPv4))
-		} else {
-			lines = append(lines, fmt.Sprintf("• %s", name))
-		}
-	}
-	if len(involved) == 0 {
-		return
-	}
-	if err := messageSender.SendEvent(models.EventMessage{
-		Event:   event,
-		Clients: involved,
-		Time:    time.Now(),
-		Message: strings.Join(lines, "\n"),
-		Emoji:   emoji,
-	}); err != nil {
-		log.Printf("Failed to send %s notification: %v", event, err)
-	}
-}
-
 // advanceCnBlockStates 推进状态机，返回本轮确认发生转换的节点：
 // blocked 为新判定被墙的节点，recovered 为从被墙恢复的节点。
 func advanceCnBlockStates(states map[string]tasks.CnBlockState, now time.Time) (blocked, recovered []string) {
@@ -173,6 +136,68 @@ func advanceCnBlockStates(states map[string]tasks.CnBlockState, now time.Time) (
 		}
 	}
 	return blocked, recovered
+}
+
+// sendCnBlockEvent 组装并发送一条聚合通知（同一轮内的多个节点合并为一条消息）。
+//
+// IP 是这类告警里最需要被读到、被拿去用的信息，所以单独成行突出显示；
+// 在按 HTML 解析的渠道（Telegram）上用 <code> 包裹，渲染为等宽块，
+// 点一下即可复制。其它渠道退回纯文本，不会看到裸标签。
+func sendCnBlockEvent(event, emoji string, uuids []string, byUUID map[string]models.Client) {
+	if len(uuids) == 0 {
+		return
+	}
+	asHTML := messageSender.SupportsHTML()
+	involved := make([]models.Client, 0, len(uuids))
+	lines := make([]string, 0, len(uuids)*3)
+	for _, uuid := range uuids {
+		client, ok := byUUID[uuid]
+		if !ok {
+			continue
+		}
+		involved = append(involved, client)
+		name := client.Name
+		if strings.TrimSpace(name) == "" {
+			name = client.UUID
+		}
+		lines = append(lines, "• "+plainText(name, asHTML))
+		if client.IPv4 != "" {
+			lines = append(lines, "  IPv4 "+copyableText(client.IPv4, asHTML))
+		}
+		if client.IPv6 != "" {
+			lines = append(lines, "  IPv6 "+copyableText(client.IPv6, asHTML))
+		}
+	}
+	if len(involved) == 0 {
+		return
+	}
+	if err := messageSender.SendEvent(models.EventMessage{
+		Event:   event,
+		Clients: involved,
+		Time:    time.Now(),
+		Message: strings.Join(lines, "\n"),
+		Emoji:   emoji,
+	}); err != nil {
+		log.Printf("Failed to send %s notification: %v", event, err)
+	}
+}
+
+// copyableText 把一段文本渲染为可点击复制的等宽块（HTML 渠道），
+// 非 HTML 渠道原样返回。
+func copyableText(text string, asHTML bool) string {
+	if !asHTML {
+		return text
+	}
+	return "<code>" + html.EscapeString(text) + "</code>"
+}
+
+// plainText 在 HTML 渠道下转义文本中的 < > &，避免节点名里的特殊字符
+// 破坏整条消息的解析。
+func plainText(text string, asHTML bool) string {
+	if !asHTML {
+		return text
+	}
+	return html.EscapeString(text)
 }
 
 func resetCnBlockStates() {
