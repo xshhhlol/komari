@@ -225,7 +225,7 @@ func getNodes(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcEr
 		return nil, rpc.MakeError(rpc.InternalError, "Failed to get client info", cinfo)
 	}
 	// 计算"被墙"标记：对国内参照 ping 任务全部超时的节点。
-	blockedMap := computeCnBlockedMap()
+	blockedMap := tasks.ComputeCnBlockedMap()
 	for i := range cinfo {
 		cinfo[i].CnBlocked = blockedMap[cinfo[i].UUID]
 	}

@@ -201,6 +201,9 @@ func DoScheduledWork() {
 	if err := corn.AddFunc("notifier:expire", "0 0 9 * * *", notifier.CheckExpireScheduledWork); err != nil {
 		log.Println("Failed to add expire notification scheduled task:", err)
 	}
+	if err := corn.AddFunc("notifier:cnblocked", "@every 1m", notifier.CheckCnBlockedScheduledWork); err != nil {
+		log.Println("Failed to add cn-blocked notification scheduled task:", err)
+	}
 	notifier.InitTrafficReportSchedule()
 }
 
