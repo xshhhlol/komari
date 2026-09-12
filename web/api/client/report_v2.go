@@ -78,7 +78,7 @@ func handleV2RPC(uuid string, req v2.Request, allowWait bool) v2.Response {
 				finishedAt = t
 			}
 		}
-		ingestPingResult(uuid, params.TaskID, params.Value, finishedAt)
+		ingestPingResult(uuid, params.TaskID, params.Value, params.Loss, finishedAt)
 		return v2.Success(req.ID, gin.H{"status": "success"})
 	case v2.MethodAgentPull:
 		var params v2.PullParams

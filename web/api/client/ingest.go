@@ -1,6 +1,7 @@
 package client
 
 import (
+	"math"
 	"time"
 
 	"github.com/komari-monitor/komari/database/models"
@@ -38,12 +39,19 @@ func ingestBasicInfo(uuid string, info map[string]interface{}, fallbackIP string
 	return saveClientBasicInfo(info, uuid, fallbackIP)
 }
 
-// ingestPingResult 保存一条 ping 探测结果。
-func ingestPingResult(uuid string, taskID uint, value int, finishedAt time.Time) {
+// ingestPingResult 保存一条 ping 探测结果。loss 为本次探测自身的丢包率（%），仅 tcp_bulk 上报。
+func ingestPingResult(uuid string, taskID uint, value int, loss *float64, finishedAt time.Time) {
+	if value < 0 {
+		loss = nil // 整次失败已由 value=-1 计为丢包
+	} else if loss != nil {
+		clamped := math.Max(0, math.Min(100, *loss))
+		loss = &clamped
+	}
 	tasks.SavePingRecord(models.PingRecord{
 		Client: uuid,
 		TaskId: taskID,
 		Value:  value,
+		Loss:   loss,
 		Time:   models.FromTime(finishedAt),
 	})
 }

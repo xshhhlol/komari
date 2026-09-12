@@ -251,6 +251,7 @@ func processMessage(conn *connection.SafeConn, message []byte, uuid string) {
 		var reqBody struct {
 			PingTaskID uint      `json:"task_id"`
 			PingResult int       `json:"value"`
+			PingLoss   *float64  `json:"loss"`
 			PingType   string    `json:"ping_type"`
 			FinishedAt time.Time `json:"finished_at"`
 		}
@@ -259,7 +260,7 @@ func processMessage(conn *connection.SafeConn, message []byte, uuid string) {
 			conn.WriteJSON(gin.H{"status": "error", "error": "Invalid ping result format"})
 			return
 		}
-		ingestPingResult(uuid, reqBody.PingTaskID, reqBody.PingResult, reqBody.FinishedAt)
+		ingestPingResult(uuid, reqBody.PingTaskID, reqBody.PingResult, reqBody.PingLoss, reqBody.FinishedAt)
 	default:
 		log.Printf("Unknown message type: %s", msgType.Type)
 		conn.WriteJSON(gin.H{"status": "error", "error": "Unknown message type"})

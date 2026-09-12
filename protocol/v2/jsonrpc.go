@@ -54,10 +54,11 @@ type BasicInfoParams struct {
 }
 
 type PingResultParams struct {
-	TaskID     uint   `json:"task_id"`
-	PingType   string `json:"ping_type"`
-	Value      int    `json:"value"`
-	FinishedAt string `json:"finished_at"`
+	TaskID     uint     `json:"task_id"`
+	PingType   string   `json:"ping_type"`
+	Value      int      `json:"value"`
+	Loss       *float64 `json:"loss,omitempty"` // tcp_bulk：本次数据段重传率（%）
+	FinishedAt string   `json:"finished_at"`
 }
 
 type PullParams struct {

@@ -214,6 +214,7 @@ func getRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpc
 			TaskId uint             `json:"task_id,omitempty"`
 			Time   models.LocalTime `json:"time"`
 			Value  int              `json:"value"`
+			Loss   *float64         `json:"loss,omitempty"`
 			Client string           `json:"client,omitempty"`
 		}
 		type ClientBasicInfo struct {
@@ -236,7 +237,7 @@ func getRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpc
 		// stats per client
 		clientStats := make(map[string]struct {
 			total int
-			loss  int
+			loss  float64
 			min   int
 			max   int
 		})
@@ -246,13 +247,13 @@ func getRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpc
 				TaskId: r.TaskId,
 				Time:   r.Time,
 				Value:  r.Value,
+				Loss:   r.Loss,
 				Client: r.Client,
 			}
 			st := clientStats[r.Client]
 			st.total++
-			if r.Value < 0 {
-				st.loss++
-			} else {
+			st.loss += r.LossFraction()
+			if r.Value >= 0 {
 				if st.min == 0 || r.Value < st.min {
 					st.min = r.Value
 				}
@@ -272,7 +273,7 @@ func getRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpc
 				}
 				loss := float64(0)
 				if st.total > 0 {
-					loss = float64(st.loss) / float64(st.total) * 100
+					loss = st.loss / float64(st.total) * 100
 				}
 				response.BasicInfo = append(response.BasicInfo, ClientBasicInfo{
 					Client: client,
@@ -299,7 +300,7 @@ func getRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpc
 				}
 			}
 			total := 0
-			lossCount := 0
+			lossSum := 0.0
 			minLat := 0
 			maxLat := 0
 			sum := 0
@@ -316,8 +317,8 @@ func getRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpc
 					continue
 				}
 				total++
+				lossSum += r.LossFraction()
 				if r.Value < 0 { // 丢包
-					lossCount++
 					continue
 				}
 				valid++
@@ -373,7 +374,7 @@ func getRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpc
 			}
 			lossRate := 0.0
 			if total > 0 {
-				lossRate = float64(lossCount) / float64(total) * 100
+				lossRate = lossSum / float64(total) * 100
 			}
 			avg := 0
 			if valid > 0 {

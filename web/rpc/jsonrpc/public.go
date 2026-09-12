@@ -301,10 +301,11 @@ func publicGetPingRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 	isLogin := isLoginFromCtx(ctx)
 
 	type recordsResp struct {
-		TaskId uint   `json:"task_id,omitempty"`
-		Time   string `json:"time"`
-		Value  int    `json:"value"`
-		Client string `json:"client,omitempty"`
+		TaskId uint     `json:"task_id,omitempty"`
+		Time   string   `json:"time"`
+		Value  int      `json:"value"`
+		Loss   *float64 `json:"loss,omitempty"`
+		Client string   `json:"client,omitempty"`
 	}
 	type clientBasicInfo struct {
 		Client string  `json:"client"`
@@ -359,18 +360,18 @@ func publicGetPingRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 	}
 
 	clientStats := make(map[string]struct {
-		total, loss, min, max int
+		total, min, max int
+		loss            float64
 	})
 	for _, r := range recs {
 		if r.Client != "" && !isLogin && hiddenMap[r.Client] {
 			continue
 		}
-		rec := recordsResp{Time: r.Time.ToTime().Format(time.RFC3339), Value: r.Value, Client: r.Client, TaskId: r.TaskId}
+		rec := recordsResp{Time: r.Time.ToTime().Format(time.RFC3339), Value: r.Value, Loss: r.Loss, Client: r.Client, TaskId: r.TaskId}
 		stats := clientStats[r.Client]
 		stats.total++
-		if r.Value < 0 {
-			stats.loss++
-		} else {
+		stats.loss += r.LossFraction()
+		if r.Value >= 0 {
 			if stats.min == 0 || r.Value < stats.min {
 				stats.min = r.Value
 			}
@@ -390,7 +391,7 @@ func publicGetPingRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 			}
 			loss := float64(0)
 			if stats.total > 0 {
-				loss = float64(stats.loss) / float64(stats.total) * 100
+				loss = stats.loss / float64(stats.total) * 100
 			}
 			response.BasicInfo = append(response.BasicInfo, clientBasicInfo{Client: client, Loss: loss, Min: stats.min, Max: stats.max})
 		}
@@ -409,7 +410,8 @@ func publicGetPingRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 			if params.UUID != "" && !t.AppliesToClient(params.UUID) {
 				continue
 			}
-			totalCount, lossCount, minLatency, maxLatency, sumLatency, validCount := 0, 0, 0, 0, 0, 0
+			totalCount, minLatency, maxLatency, sumLatency, validCount := 0, 0, 0, 0, 0
+			lossSum := 0.0
 			for _, r := range recs {
 				if r.TaskId != t.Id {
 					continue
@@ -418,9 +420,8 @@ func publicGetPingRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 					continue
 				}
 				totalCount++
-				if r.Value < 0 {
-					lossCount++
-				} else {
+				lossSum += r.LossFraction()
+				if r.Value >= 0 {
 					validCount++
 					sumLatency += r.Value
 					if minLatency == 0 || r.Value < minLatency {
@@ -433,7 +434,7 @@ func publicGetPingRecords(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 			}
 			lossRate := float64(0)
 			if totalCount > 0 {
-				lossRate = float64(lossCount) / float64(totalCount) * 100
+				lossRate = lossSum / float64(totalCount) * 100
 			}
 			avgLatency := 0
 			if validCount > 0 {

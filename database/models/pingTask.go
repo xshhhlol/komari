@@ -7,6 +7,19 @@ type PingRecord struct {
 	Task       PingTask  `json:"task" gorm:"foreignKey:TaskId;references:Id;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;"`
 	Time       LocalTime `json:"time" gorm:"index;not null"`
 	Value      int       `json:"value" gorm:"type:int;not null"` // Ping 值，单位毫秒
+	// Loss 为本次探测自身的丢包率（%）：仅 tcp_bulk 上报数据段重传率；其余类型整次失败以 Value=-1 表示
+	Loss *float64 `json:"loss,omitempty"`
+}
+
+// LossFraction 返回这条记录计入丢包率的份额（0~1）：整次失败记 1，tcp_bulk 按重传率计。
+func (r PingRecord) LossFraction() float64 {
+	if r.Value < 0 {
+		return 1
+	}
+	if r.Loss != nil {
+		return *r.Loss / 100
+	}
+	return 0
 }
 
 // PingTask 表示一次延迟监测任务配置。
@@ -16,7 +29,7 @@ type PingTask struct {
 	Name      string      `json:"name" gorm:"type:varchar(255);not null;index"`
 	Clients   StringArray `json:"clients" gorm:"type:longtext"`
 	DefaultOn bool        `json:"default_on" gorm:"column:all_clients;not null;default:false"` // 新加入的服务器是否自动开启此监测；现有服务器不受此字段影响
-	Type      string      `json:"type" gorm:"type:varchar(12);not null;default:'icmp'"`        // icmp tcp http
+	Type      string      `json:"type" gorm:"type:varchar(12);not null;default:'icmp'"`        // icmp tcp tcp_bulk http
 	Target    string      `json:"target" gorm:"type:varchar(255);not null"`                    // Ping 目标地址
 	Interval  int         `json:"interval" gorm:"type:int;not null;default:60"`                // 间隔时间
 	BlockCheck bool       `json:"block_check" gorm:"column:block_check;not null;default:false"` // 是否作为"被墙"判定的国内参照目标：纳入的任务若对某节点全部超时，则该节点判为被墙

@@ -88,13 +88,13 @@ func getPingStatsForNode(uuid string, pingTasks []models.PingTask) map[string]pi
 		sum := 0
 		valid := 0
 		total := 0
-		lossCount := 0
+		lossSum := 0.0
 		minLat := 0
 		maxLat := 0
 		for _, r := range records {
 			total++
+			lossSum += r.LossFraction()
 			if r.Value < 0 { // 丢包
-				lossCount++
 				continue
 			}
 			values = append(values, r.Value)
@@ -148,7 +148,7 @@ func getPingStatsForNode(uuid string, pingTasks []models.PingTask) map[string]pi
 		}
 		lossRate := 0.0
 		if total > 0 {
-			lossRate = float64(lossCount) / float64(total) * 100
+			lossRate = lossSum / float64(total) * 100
 		}
 		result[fmt.Sprintf("%d", t.Id)] = pingStat{
 			Name:   t.Name,
