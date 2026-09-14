@@ -12,6 +12,7 @@ import (
 	"github.com/komari-monitor/komari/database/tasks"
 	"github.com/komari-monitor/komari/pkg/config"
 	"github.com/komari-monitor/komari/utils/messageSender"
+	agent_runtime "github.com/komari-monitor/komari/web/agent"
 )
 
 // CheckCnBlockedScheduledWork 供定时任务调用。
@@ -19,14 +20,19 @@ func CheckCnBlockedScheduledWork() {
 	CheckCnBlocked()
 }
 
-// CheckCnBlocked 推进各节点的"被墙"状态，并对本轮确认的变化发送通知。
+// CheckCnBlocked 推进各节点的"被墙"状态，并在页面"被墙"标记（在线且被墙）每次变化时发送通知：
+// 新被墙、恢复、被墙期间掉线。在线状态与页面同源。
 //
-// 状态推进不受通知开关影响：页面上的"被墙"标记读取的也是这份状态，两者始终一致。
+// 状态推进不受通知开关影响：节点列表接口读取的也是这份状态。
 // 通知关闭期间发生的变化直接吸收，重新开启后不会补发。
-// 判定与去抖规则见 tasks.RefreshCnBlockStates。
 func CheckCnBlocked() {
-	blockedUUIDs, recoveredUUIDs := tasks.RefreshCnBlockStates()
-	if len(blockedUUIDs) == 0 && len(recoveredUUIDs) == 0 {
+	onlineUUIDs := agent_runtime.GetAllOnlineUUIDs()
+	online := make(map[string]bool, len(onlineUUIDs))
+	for _, uuid := range onlineUUIDs {
+		online[uuid] = true
+	}
+	changes := tasks.RefreshCnBlockStates(online)
+	if changes.Empty() {
 		return
 	}
 
@@ -54,8 +60,9 @@ func CheckCnBlocked() {
 		byUUID[c.UUID] = c
 	}
 
-	sendCnBlockEvent(messageevent.CnBlocked, "🚧", blockedUUIDs, byUUID)
-	sendCnBlockEvent(messageevent.CnUnblocked, "✅", recoveredUUIDs, byUUID)
+	sendCnBlockEvent(messageevent.CnBlocked, "🚧", changes.Blocked, byUUID)
+	sendCnBlockEvent(messageevent.CnUnblocked, "✅", changes.Recovered, byUUID)
+	sendCnBlockEvent(messageevent.CnBlockedOffline, "📴", changes.Offline, byUUID)
 }
 
 // sendCnBlockEvent 组装并发送一条聚合通知（同一轮内的多个节点合并为一条消息）。
