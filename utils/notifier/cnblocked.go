@@ -2,7 +2,6 @@ package notifier
 
 import (
 	"log"
-	"strings"
 	"time"
 
 	"github.com/komari-monitor/komari/database/clients"
@@ -79,24 +78,9 @@ func sendCnBlockEvent(event, emoji string, uuids []string, byUUID map[string]mod
 		Event:   event,
 		Clients: involved,
 		Time:    time.Now(),
-		Message: formatCnBlockMessage(involved, messageSender.SupportsHTML()),
+		Message: formatClientsMessage(involved, messageSender.SupportsHTML()),
 		Emoji:   emoji,
 	}); err != nil {
 		log.Printf("Failed to send %s notification: %v", event, err)
 	}
-}
-
-// formatCnBlockMessage 排版通知正文：每个节点一行名称，其后每个 IP 各占一行。
-// IP 行的排版见 appendIPLines。
-func formatCnBlockMessage(involved []models.Client, asHTML bool) string {
-	lines := make([]string, 0, len(involved)*3)
-	for _, client := range involved {
-		name := client.Name
-		if strings.TrimSpace(name) == "" {
-			name = client.UUID
-		}
-		lines = append(lines, "• "+plainText(name, asHTML))
-		lines = appendIPLines(lines, client, asHTML)
-	}
-	return strings.Join(lines, "\n")
 }

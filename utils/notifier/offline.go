@@ -106,7 +106,7 @@ func OfflineNotification(clientID string, endedConnectionID int64) {
 
 		// Send notification
 		// 正文带上节点 IP：掉线后要按 IP 去查/去连，通知里直接给出省得再翻面板。
-		message := formatClientIPMessage(client, messageSender.SupportsHTML())
+		message := formatClientsMessage([]models.Client{client}, messageSender.SupportsHTML())
 		go func(msg string) {
 			if err := messageSender.SendEvent(models.EventMessage{
 				Event:   messageevent.Offline,
@@ -175,7 +175,7 @@ func OnlineNotification(clientID string, connectionID int64) {
 	}
 
 	// 规则4：客户端离线足够久已通知（或未待离线），现在重新上线，发送上线通知。
-	message := formatClientIPMessage(client, messageSender.SupportsHTML())
+	message := formatClientsMessage([]models.Client{client}, messageSender.SupportsHTML())
 	go func(msg string) {
 		if err := messageSender.SendEvent(models.EventMessage{
 			Event:   messageevent.Online,
