@@ -1,7 +1,6 @@
 package notifier
 
 import (
-	"html"
 	"log"
 	"strings"
 	"time"
@@ -88,10 +87,7 @@ func sendCnBlockEvent(event, emoji string, uuids []string, byUUID map[string]mod
 }
 
 // formatCnBlockMessage 排版通知正文：每个节点一行名称，其后每个 IP 各占一行。
-//
-// IP 是这类告警里最需要被读到、被拿去用的信息，所以单独成行；在按 HTML 解析的
-// 渠道（Telegram）上用 <code> 包裹，渲染为等宽块，点一下即可复制。其它渠道退回纯文本。
-// IP 行不缩进：Telegram 会原样保留行首空格，看上去像凭空多了个空格。
+// IP 行的排版见 appendIPLines。
 func formatCnBlockMessage(involved []models.Client, asHTML bool) string {
 	lines := make([]string, 0, len(involved)*3)
 	for _, client := range involved {
@@ -100,30 +96,7 @@ func formatCnBlockMessage(involved []models.Client, asHTML bool) string {
 			name = client.UUID
 		}
 		lines = append(lines, "• "+plainText(name, asHTML))
-		if client.IPv4 != "" {
-			lines = append(lines, "IPv4 "+copyableText(client.IPv4, asHTML))
-		}
-		if client.IPv6 != "" {
-			lines = append(lines, "IPv6 "+copyableText(client.IPv6, asHTML))
-		}
+		lines = appendIPLines(lines, client, asHTML)
 	}
 	return strings.Join(lines, "\n")
-}
-
-// copyableText 把一段文本渲染为可点击复制的等宽块（HTML 渠道），
-// 非 HTML 渠道原样返回。
-func copyableText(text string, asHTML bool) string {
-	if !asHTML {
-		return text
-	}
-	return "<code>" + html.EscapeString(text) + "</code>"
-}
-
-// plainText 在 HTML 渠道下转义文本中的 < > &，避免节点名里的特殊字符
-// 破坏整条消息的解析。
-func plainText(text string, asHTML bool) string {
-	if !asHTML {
-		return text
-	}
-	return html.EscapeString(text)
 }
