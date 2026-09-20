@@ -63,20 +63,20 @@ func TestJudgeCnBlockStates(t *testing.T) {
 	}
 	// 每个 (节点, 任务) 内按时间倒序
 	recs := []models.PingRecord{
-		// a：两个目标都连续 2 轮超时（更早能通不影响）
-		rec("a", 1, 2, -1), rec("a", 1, 1, -1), rec("a", 1, 0, 30),
-		rec("a", 2, 2, -1), rec("a", 2, 1, -1),
+		// a：两个目标都连续 3 轮超时（更早能通不影响）
+		rec("a", 1, 3, -1), rec("a", 1, 2, -1), rec("a", 1, 1, -1), rec("a", 1, 0, 30),
+		rec("a", 2, 3, -1), rec("a", 2, 2, -1), rec("a", 2, 1, -1),
 		// b：一个目标连续超时，另一个连续能通
-		rec("b", 1, 2, -1), rec("b", 1, 1, -1),
-		rec("b", 2, 2, 25), rec("b", 2, 1, 26),
-		// c：其中一个目标只超时了 1 轮
-		rec("c", 1, 2, -1), rec("c", 1, 1, -1),
-		rec("c", 2, 2, -1), rec("c", 2, 1, 30),
-		// d：掉线标记之后只有 1 轮新记录
-		rec("d", 1, 2, -1), rec("d", 1, 1, -1),
-		rec("d", 2, 2, -1), rec("d", 2, 1, -1),
+		rec("b", 1, 3, -1), rec("b", 1, 2, -1), rec("b", 1, 1, -1),
+		rec("b", 2, 3, 25), rec("b", 2, 2, 25), rec("b", 2, 1, 26),
+		// c：其中一个目标只超时了 2 轮，差一轮
+		rec("c", 1, 3, -1), rec("c", 1, 2, -1), rec("c", 1, 1, -1),
+		rec("c", 2, 3, -1), rec("c", 2, 2, -1), rec("c", 2, 1, 30),
+		// d：掉线标记之后只有 2 轮新记录
+		rec("d", 1, 3, -1), rec("d", 1, 2, -1), rec("d", 1, 1, -1),
+		rec("d", 2, 3, -1), rec("d", 2, 2, -1), rec("d", 2, 1, -1),
 		// e：只有一个目标有记录
-		rec("e", 1, 2, -1), rec("e", 1, 1, -1),
+		rec("e", 1, 3, -1), rec("e", 1, 2, -1), rec("e", 1, 1, -1),
 	}
 	nodes := map[string]cnBlockNode{"d": {staleBefore: cnTestTime(1).ToTime()}}
 
@@ -94,34 +94,42 @@ func TestJudgeCnBlockStates(t *testing.T) {
 }
 
 func TestAdvanceCnBlockStates(t *testing.T) {
-	t.Run("单轮全部超时随即恢复（抖动）不通知", func(t *testing.T) {
+	t.Run("连着两轮全部超时随即恢复（抖动）不通知", func(t *testing.T) {
 		s := &cnBlockSim{t: t, tasks: cnTestTasks("a")}
 		s.probe("a", 0, 30, 40)
 		s.probe("a", 1, 30, 40)
+		s.probe("a", 2, 30, 40)
 		s.tick(CnBlockChanges{}, "a") // 首轮只记基线
-		s.probe("a", 2, -1, -1)
+		s.probe("a", 3, -1, -1)
 		s.tick(CnBlockChanges{}, "a")
-		s.probe("a", 3, 30, 40)
+		s.probe("a", 4, -1, -1)
+		s.tick(CnBlockChanges{}, "a") // 差一轮，还不算被墙
+		s.probe("a", 5, 30, 40)
 		s.tick(CnBlockChanges{}, "a")
 		if s.nodes["a"].state != CnBlockNormal {
-			t.Fatalf("a single bad round should keep the node normal, got %v", s.nodes["a"].state)
+			t.Fatalf("two bad rounds should keep the node normal, got %v", s.nodes["a"].state)
 		}
 	})
 
-	t.Run("连续 2 轮才判被墙 / 恢复，状态不变不重复", func(t *testing.T) {
+	t.Run("连续 3 轮才判被墙 / 恢复，状态不变不重复", func(t *testing.T) {
 		s := &cnBlockSim{t: t, tasks: cnTestTasks("a")}
 		s.probe("a", 0, 30, 40)
 		s.probe("a", 1, 30, 40)
-		s.tick(CnBlockChanges{}, "a")
-		s.probe("a", 2, -1, -1)
+		s.probe("a", 2, 30, 40)
 		s.tick(CnBlockChanges{}, "a")
 		s.probe("a", 3, -1, -1)
-		s.tick(CnBlockChanges{Blocked: []string{"a"}}, "a")
-		s.probe("a", 4, -1, -1)
 		s.tick(CnBlockChanges{}, "a")
-		s.probe("a", 5, 30, -1)
+		s.probe("a", 4, -1, -1)
+		s.tick(CnBlockChanges{}, "a") // 只超时 2 轮
+		s.probe("a", 5, -1, -1)
+		s.tick(CnBlockChanges{Blocked: []string{"a"}}, "a")
+		s.probe("a", 6, -1, -1)
+		s.tick(CnBlockChanges{}, "a")
+		s.probe("a", 7, 30, -1)
 		s.tick(CnBlockChanges{}, "a") // 只通了 1 轮
-		s.probe("a", 6, 30, -1)
+		s.probe("a", 8, 30, -1)
+		s.tick(CnBlockChanges{}, "a") // 只通了 2 轮
+		s.probe("a", 9, 30, -1)
 		s.tick(CnBlockChanges{Recovered: []string{"a"}}, "a")
 	})
 
@@ -129,16 +137,19 @@ func TestAdvanceCnBlockStates(t *testing.T) {
 		s := &cnBlockSim{t: t, tasks: cnTestTasks("a")}
 		s.probe("a", 0, 30, 40)
 		s.probe("a", 1, 30, 40)
+		s.probe("a", 2, 30, 40)
 		s.tick(CnBlockChanges{}, "a")
-		s.probe("a", 2, -1, 40)
 		s.probe("a", 3, -1, 40)
+		s.probe("a", 4, -1, 40)
+		s.probe("a", 5, -1, 40)
 		s.tick(CnBlockChanges{}, "a")
 	})
 
-	t.Run("被墙节点掉线要通知；重新上线只认新记录，连续 2 轮仍被墙再通知", func(t *testing.T) {
+	t.Run("被墙节点掉线要通知；重新上线只认新记录，连续 3 轮仍被墙再通知", func(t *testing.T) {
 		s := &cnBlockSim{t: t, tasks: cnTestTasks("a")}
 		s.probe("a", 0, -1, -1)
 		s.probe("a", 1, -1, -1)
+		s.probe("a", 2, -1, -1)
 		s.tick(CnBlockChanges{}, "a")
 		s.tick(CnBlockChanges{Offline: []string{"a"}}) // 掉线
 		s.tick(CnBlockChanges{})                       // 持续离线不重复
@@ -149,6 +160,8 @@ func TestAdvanceCnBlockStates(t *testing.T) {
 		s.probe("a", 3, -1, -1)
 		s.tick(CnBlockChanges{}, "a") // 新记录只有 1 轮
 		s.probe("a", 4, -1, -1)
+		s.tick(CnBlockChanges{}, "a") // 新记录只有 2 轮
+		s.probe("a", 5, -1, -1)
 		s.tick(CnBlockChanges{Blocked: []string{"a"}}, "a")
 	})
 
@@ -156,11 +169,14 @@ func TestAdvanceCnBlockStates(t *testing.T) {
 		s := &cnBlockSim{t: t, tasks: cnTestTasks("a")}
 		s.probe("a", 0, -1, -1)
 		s.probe("a", 1, -1, -1)
+		s.probe("a", 2, -1, -1)
 		s.tick(CnBlockChanges{}, "a")
 		s.tick(CnBlockChanges{Offline: []string{"a"}})
-		s.probe("a", 2, 30, 40)
-		s.tick(CnBlockChanges{}, "a")
 		s.probe("a", 3, 30, 40)
+		s.tick(CnBlockChanges{}, "a")
+		s.probe("a", 4, 30, 40)
+		s.tick(CnBlockChanges{}, "a")
+		s.probe("a", 5, 30, 40)
 		s.tick(CnBlockChanges{}, "a")
 		if s.nodes["a"].state != CnBlockNormal {
 			t.Fatalf("expected normal after reconnecting with a clean IP, got %v", s.nodes["a"].state)
@@ -171,6 +187,7 @@ func TestAdvanceCnBlockStates(t *testing.T) {
 		s := &cnBlockSim{t: t, tasks: cnTestTasks("a")}
 		s.probe("a", 0, 30, 40)
 		s.probe("a", 1, 30, 40)
+		s.probe("a", 2, 30, 40)
 		s.tick(CnBlockChanges{}, "a")
 		s.tick(CnBlockChanges{})
 	})
@@ -179,12 +196,15 @@ func TestAdvanceCnBlockStates(t *testing.T) {
 		s := &cnBlockSim{t: t, tasks: cnTestTasks("a")}
 		s.probe("a", 0, -1, -1) // 重启前已被墙（已通知过）
 		s.probe("a", 1, -1, -1)
+		s.probe("a", 2, -1, -1)
 		s.tick(CnBlockChanges{})      // 首轮：agent 尚未重连
 		s.tick(CnBlockChanges{})      // 仍未重连，不算"被墙后掉线"
 		s.tick(CnBlockChanges{}, "a") // 重连后仍被墙
 		s.probe("a", 3, 30, -1)
 		s.tick(CnBlockChanges{}, "a")
 		s.probe("a", 4, 30, -1)
+		s.tick(CnBlockChanges{}, "a")
+		s.probe("a", 5, 30, -1)
 		s.tick(CnBlockChanges{Recovered: []string{"a"}}, "a")
 	})
 
@@ -196,6 +216,9 @@ func TestAdvanceCnBlockStates(t *testing.T) {
 		s.tick(CnBlockChanges{}, "a", "b")
 		s.probe("a", 2, -1, -1)
 		s.probe("b", 2, 30, -1)
+		s.tick(CnBlockChanges{}, "a", "b")
+		s.probe("a", 3, -1, -1)
+		s.probe("b", 3, 30, -1)
 		s.tick(CnBlockChanges{Blocked: []string{"a"}}, "a", "b")
 	})
 
@@ -203,6 +226,7 @@ func TestAdvanceCnBlockStates(t *testing.T) {
 		s := &cnBlockSim{t: t, tasks: cnTestTasks("a")}
 		s.probe("a", 0, -1, -1)
 		s.probe("a", 1, -1, -1)
+		s.probe("a", 2, -1, -1)
 		s.tick(CnBlockChanges{}, "a")
 		// 新增一个参照任务，节点还没有它的记录
 		s.tasks = append(s.tasks, models.PingTask{Id: 3, Interval: 60, BlockCheck: true, Clients: models.StringArray{"a"}})
@@ -216,6 +240,7 @@ func TestAdvanceCnBlockStates(t *testing.T) {
 		s := &cnBlockSim{t: t, tasks: cnTestTasks("a")}
 		s.probe("a", 0, -1, -1)
 		s.probe("a", 1, -1, -1)
+		s.probe("a", 2, -1, -1)
 		s.tick(CnBlockChanges{}, "a")
 		s.tasks = nil
 		s.tick(CnBlockChanges{}, "a")

@@ -23,7 +23,10 @@ const (
 
 // cnBlockStreak 为去抖轮数：单个参照目标需连续这么多轮 ping 结果一致，才算稳定超时 / 稳定可达，
 // 否则沿用上一次确认的判定。用于过滤"某一轮所有目标同时超时、下一轮又恢复"这类抖动。
-const cnBlockStreak = 2
+//
+// 取 3：两轮仍会被连着两轮的抖动骗过去，发出很快就自我推翻的被墙/恢复通知。
+// 代价是判定比实际变化晚一轮（默认 1 分钟一轮）。
+const cnBlockStreak = 3
 
 // CnBlockChanges 为一轮刷新中页面"被墙"标记（在线且被墙）发生变化的节点。
 type CnBlockChanges struct {
@@ -181,9 +184,9 @@ func loadCnBlockRecords(now time.Time) ([]models.PingTask, []models.PingRecord, 
 	if len(blockTasks) == 0 {
 		return nil, nil, nil
 	}
-	// 窗口取最大间隔的 3 倍（足够凑齐去抖所需的轮数），至少 10 分钟：容忍上报抖动/丢点，
-	// 面板升级重启的几分钟空档也不会让重启前的判定失效。
-	lookback := max(time.Duration(maxInterval)*3*time.Second, 10*time.Minute)
+	// 窗口取最大间隔的 cnBlockStreak+2 倍（凑齐去抖所需轮数之外还留有余量），至少 10 分钟：
+	// 容忍上报抖动/丢点，面板升级重启的几分钟空档也不会让重启前的判定失效。
+	lookback := max(time.Duration(maxInterval)*(cnBlockStreak+2)*time.Second, 10*time.Minute)
 	recs, err := GetRecentPingRecords(taskIDs, now.Add(-lookback))
 	if err != nil {
 		return nil, nil, err
