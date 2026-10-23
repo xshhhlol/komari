@@ -2,6 +2,7 @@ package notifier
 
 import (
 	"html"
+	"regexp"
 	"strings"
 
 	"github.com/komari-monitor/komari/database/models"
@@ -22,7 +23,26 @@ func appendIPLines(lines []string, client models.Client, asHTML bool) []string {
 	return lines
 }
 
-// formatClientsMessage 排版通知正文：每个节点一行名称，其后每个 IP 各占一行。
+// tagColorSuffix 匹配标签末尾的颜色标记（如 "落地<green>"），那是给主题上色用的，通知里不需要。
+var tagColorSuffix = regexp.MustCompile(`<\w+>$`)
+
+// appendTagsLine 把节点标签合成一行追加；没有标签的节点不留空行。
+// 解析规则与主题一致：按 ';' 分隔、去空白、丢弃空项，并去掉末尾的颜色标记。
+func appendTagsLine(lines []string, client models.Client, asHTML bool) []string {
+	tags := make([]string, 0)
+	for _, tag := range strings.Split(client.Tags, ";") {
+		tag = strings.TrimSpace(tagColorSuffix.ReplaceAllString(strings.TrimSpace(tag), ""))
+		if tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	if len(tags) == 0 {
+		return lines
+	}
+	return append(lines, "Tags "+plainText(strings.Join(tags, ", "), asHTML))
+}
+
+// formatClientsMessage 排版通知正文：每个节点一行名称，其后一行标签（有的话），再每个 IP 各占一行。
 // 所有事件（被墙 / 上线 / 下线）共用这一套排版。
 //
 // 第一行必须是节点名而不是 IP：模板里正文接在 "Message: " 后面，正文的第一行
@@ -31,13 +51,14 @@ func appendIPLines(lines []string, client models.Client, asHTML bool) []string {
 //
 // 下线通知用的是库里最后一次上报的 IP——节点已经断开，拿不到更新的了。
 func formatClientsMessage(involved []models.Client, asHTML bool) string {
-	lines := make([]string, 0, len(involved)*3)
+	lines := make([]string, 0, len(involved)*4)
 	for _, client := range involved {
 		name := client.Name
 		if strings.TrimSpace(name) == "" {
 			name = client.UUID
 		}
 		lines = append(lines, "• "+plainText(name, asHTML))
+		lines = appendTagsLine(lines, client, asHTML)
 		lines = appendIPLines(lines, client, asHTML)
 	}
 	return strings.Join(lines, "\n")

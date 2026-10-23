@@ -32,6 +32,18 @@ func TestFormatClientsMessage(t *testing.T) {
 			want:     "• HK &lt;1&gt;\nIPv4 <code>1.2.3.4</code>\n• u2\nIPv4 <code>5.6.7.8</code>",
 		},
 		{
+			name:     "标签单独一行：按 ; 分隔、去掉颜色标记与空项、转义特殊字符",
+			involved: []models.Client{{Name: "AK-香港05", Tags: "香港05; 落地<green>;;A&B", IPv4: "154.83.85.114"}},
+			asHTML:   true,
+			want:     "• AK-香港05\nTags 香港05, 落地, A&amp;B\nIPv4 <code>154.83.85.114</code>",
+		},
+		{
+			name:     "标签只有空白时不输出标签行",
+			involved: []models.Client{{Name: "HK01", Tags: " ; ", IPv4: "1.2.3.4"}},
+			asHTML:   true,
+			want:     "• HK01\nIPv4 <code>1.2.3.4</code>",
+		},
+		{
 			name:     "从未上报过 IP 时只有名称行，不留空行",
 			involved: []models.Client{{Name: "HK01"}},
 			asHTML:   true,
