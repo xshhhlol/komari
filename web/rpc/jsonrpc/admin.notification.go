@@ -7,11 +7,10 @@ import (
 	"github.com/komari-monitor/komari/database/models"
 	"github.com/komari-monitor/komari/database/notification"
 	"github.com/komari-monitor/komari/pkg/rpc"
-	"gorm.io/gorm/clause"
 )
 
 // admin.notification.go
-// 通知相关 RPC2 方法（admin 命名空间）：负载告警、离线通知、流量报告。
+// 通知相关 RPC2 方法（admin 命名空间）：负载告警、离线通知（含逐节点被墙通知开关）、流量报告。
 
 func init() {
 	// load notifications
@@ -24,6 +23,9 @@ func init() {
 	reg("editOfflineNotification", adminEditOfflineNotification, "Edit offline notifications")
 	reg("enableOfflineNotification", adminEnableOfflineNotification, "Enable offline notifications for clients")
 	reg("disableOfflineNotification", adminDisableOfflineNotification, "Disable offline notifications for clients")
+	// per-node cn-blocked notifications (same table as offline notifications)
+	reg("enableCnBlockedNotification", adminEnableCnBlockedNotification, "Enable cn-blocked notifications for clients")
+	reg("disableCnBlockedNotification", adminDisableCnBlockedNotification, "Disable cn-blocked notifications for clients")
 	// traffic report notifications
 	reg("listTrafficReportNotifications", adminListTrafficReport, "List traffic report notifications")
 	reg("editTrafficReportNotifications", adminEditTrafficReport, "Edit traffic report notifications")
@@ -106,67 +108,57 @@ func adminListOfflineNotifications(_ context.Context, _ *rpc.JsonRpcRequest) (an
 }
 
 func adminEditOfflineNotification(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
-	var notifications []models.OfflineNotification
-	if err := req.BindParams(&notifications); err != nil {
+	var edits []notification.OfflineNotificationEdit
+	if err := req.BindParams(&edits); err != nil {
 		return nil, rpc.MakeError(rpc.InvalidParams, "Invalid request body: "+err.Error(), nil)
 	}
-	if len(notifications) == 0 {
-		return nil, rpc.MakeError(rpc.InvalidParams, "At least one notification is required", nil)
+	if err := notification.ValidateOfflineNotificationEdits(edits); err != nil {
+		return nil, rpc.MakeError(rpc.InvalidParams, err.Error(), nil)
 	}
-	for _, noti := range notifications {
-		if noti.Client == "" {
-			return nil, rpc.MakeError(rpc.InvalidParams, "Client UUID cannot be empty", nil)
-		}
-		if noti.GracePeriod <= 0 {
-			return nil, rpc.MakeError(rpc.InvalidParams, "GracePeriod must be a positive integer", nil)
-		}
-	}
-	err := dbcore.GetDBInstance().Model(&models.OfflineNotification{}).
-		Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "client"}},
-			DoUpdates: clause.AssignmentColumns([]string{"enable", "grace_period"}),
-		}).
-		Select("*").Create(notifications).Error
-	if err != nil {
+	if err := notification.EditOfflineNotifications(edits); err != nil {
 		return nil, rpc.MakeError(rpc.InternalError, "Failed to edit offline notifications: "+err.Error(), nil)
 	}
 	return nil, nil
 }
 
-// setOfflineNotificationEnable 是 enable/disable 的共享实现。
-func setOfflineNotificationEnable(req *rpc.JsonRpcRequest, enable bool) *rpc.JsonRpcError {
+// bindClientUUIDs 解析 enable/disable 类方法的参数：节点 UUID 数组。
+func bindClientUUIDs(req *rpc.JsonRpcRequest) ([]string, *rpc.JsonRpcError) {
 	var uuids []string
 	if err := req.BindParams(&uuids); err != nil {
-		return rpc.MakeError(rpc.InvalidParams, "Invalid request body: "+err.Error(), nil)
+		return nil, rpc.MakeError(rpc.InvalidParams, "Invalid request body: "+err.Error(), nil)
 	}
-	notifications := make([]models.OfflineNotification, 0, len(uuids))
-	for _, uuid := range uuids {
-		notifications = append(notifications, models.OfflineNotification{Client: uuid, Enable: enable})
+	if len(uuids) == 0 {
+		return nil, rpc.MakeError(rpc.InvalidParams, "At least one client UUID is required", nil)
 	}
-	err := dbcore.GetDBInstance().Model(&models.OfflineNotification{}).
-		Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "client"}},
-			DoUpdates: clause.AssignmentColumns([]string{"enable"}),
-		}).
-		Select("client", "enable").Create(notifications).Error
-	if err != nil {
-		return rpc.MakeError(rpc.InternalError, "Failed to update offline notifications: "+err.Error(), nil)
+	return uuids, nil
+}
+
+// setClientsFlag 是各 enable/disable 方法的共享实现。
+func setClientsFlag(req *rpc.JsonRpcRequest, set func([]string, bool) error, enable bool, what string) (any, *rpc.JsonRpcError) {
+	uuids, e := bindClientUUIDs(req)
+	if e != nil {
+		return nil, e
 	}
-	return nil
+	if err := set(uuids, enable); err != nil {
+		return nil, rpc.MakeError(rpc.InternalError, "Failed to update "+what+": "+err.Error(), nil)
+	}
+	return nil, nil
 }
 
 func adminEnableOfflineNotification(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
-	if e := setOfflineNotificationEnable(req, true); e != nil {
-		return nil, e
-	}
-	return nil, nil
+	return setClientsFlag(req, notification.SetOfflineNotificationEnable, true, "offline notifications")
 }
 
 func adminDisableOfflineNotification(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
-	if e := setOfflineNotificationEnable(req, false); e != nil {
-		return nil, e
-	}
-	return nil, nil
+	return setClientsFlag(req, notification.SetOfflineNotificationEnable, false, "offline notifications")
+}
+
+func adminEnableCnBlockedNotification(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
+	return setClientsFlag(req, notification.SetCnBlockedNotificationEnable, true, "cn-blocked notifications")
+}
+
+func adminDisableCnBlockedNotification(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
+	return setClientsFlag(req, notification.SetCnBlockedNotificationEnable, false, "cn-blocked notifications")
 }
 
 func adminListTrafficReport(_ context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {

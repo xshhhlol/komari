@@ -198,6 +198,8 @@ func registerAdminRoutes(r *gin.Engine) {
 		notificationGroup.POST("/offline/edit", jsonRpc.Bind("admin:editOfflineNotification"))
 		notificationGroup.POST("/offline/enable", jsonRpc.Bind("admin:enableOfflineNotification"))
 		notificationGroup.POST("/offline/disable", jsonRpc.Bind("admin:disableOfflineNotification"))
+		notificationGroup.POST("/offline/cn-blocked/enable", jsonRpc.Bind("admin:enableCnBlockedNotification"))
+		notificationGroup.POST("/offline/cn-blocked/disable", jsonRpc.Bind("admin:disableCnBlockedNotification"))
 		loadAlert := notificationGroup.Group("/load")
 		{
 			loadAlert.GET("/", jsonRpc.Bind("admin:getAllLoadNotifications"))
