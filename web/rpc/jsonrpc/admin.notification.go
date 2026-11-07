@@ -5,6 +5,7 @@ import (
 
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
+	"github.com/komari-monitor/komari/database/nodenotify"
 	"github.com/komari-monitor/komari/database/notification"
 	"github.com/komari-monitor/komari/pkg/rpc"
 )
@@ -108,14 +109,14 @@ func adminListOfflineNotifications(_ context.Context, _ *rpc.JsonRpcRequest) (an
 }
 
 func adminEditOfflineNotification(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
-	var edits []notification.OfflineNotificationEdit
+	var edits []nodenotify.Edit
 	if err := req.BindParams(&edits); err != nil {
 		return nil, rpc.MakeError(rpc.InvalidParams, "Invalid request body: "+err.Error(), nil)
 	}
-	if err := notification.ValidateOfflineNotificationEdits(edits); err != nil {
+	if err := nodenotify.ValidateEdits(edits); err != nil {
 		return nil, rpc.MakeError(rpc.InvalidParams, err.Error(), nil)
 	}
-	if err := notification.EditOfflineNotifications(edits); err != nil {
+	if err := nodenotify.ApplyEdits(edits); err != nil {
 		return nil, rpc.MakeError(rpc.InternalError, "Failed to edit offline notifications: "+err.Error(), nil)
 	}
 	return nil, nil
@@ -146,19 +147,19 @@ func setClientsFlag(req *rpc.JsonRpcRequest, set func([]string, bool) error, ena
 }
 
 func adminEnableOfflineNotification(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
-	return setClientsFlag(req, notification.SetOfflineNotificationEnable, true, "offline notifications")
+	return setClientsFlag(req, nodenotify.SetOfflineEnable, true, "offline notifications")
 }
 
 func adminDisableOfflineNotification(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
-	return setClientsFlag(req, notification.SetOfflineNotificationEnable, false, "offline notifications")
+	return setClientsFlag(req, nodenotify.SetOfflineEnable, false, "offline notifications")
 }
 
 func adminEnableCnBlockedNotification(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
-	return setClientsFlag(req, notification.SetCnBlockedNotificationEnable, true, "cn-blocked notifications")
+	return setClientsFlag(req, nodenotify.SetCnBlockedEnable, true, "cn-blocked notifications")
 }
 
 func adminDisableCnBlockedNotification(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
-	return setClientsFlag(req, notification.SetCnBlockedNotificationEnable, false, "cn-blocked notifications")
+	return setClientsFlag(req, nodenotify.SetCnBlockedEnable, false, "cn-blocked notifications")
 }
 
 func adminListTrafficReport(_ context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {

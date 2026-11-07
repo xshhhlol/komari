@@ -5,14 +5,13 @@ import (
 	"time"
 
 	"github.com/komari-monitor/komari/database/clients"
-	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
 	messageevent "github.com/komari-monitor/komari/database/models/messageEvent"
+	"github.com/komari-monitor/komari/database/nodenotify"
 	"github.com/komari-monitor/komari/database/tasks"
 	"github.com/komari-monitor/komari/pkg/config"
 	"github.com/komari-monitor/komari/utils/messageSender"
 	agent_runtime "github.com/komari-monitor/komari/web/agent"
-	"gorm.io/gorm"
 )
 
 // CheckCnBlockedScheduledWork 供定时任务调用。
@@ -25,7 +24,8 @@ func CheckCnBlockedScheduledWork() {
 //
 // 状态推进不受通知开关影响：节点列表接口读取的也是这份状态。
 // 通知关闭期间发生的变化直接吸收，重新开启后不会补发。
-// 开关有两级：全局总闸，以及后台「节点通知」里逐节点的被墙通知开关（关掉的节点不进通知）。
+// 开关有两级：全局总闸，以及后台「节点通知」里逐节点的被墙通知开关（关掉的节点不进通知；
+// 没单独设置过的节点按「新节点默认」）。
 func CheckCnBlocked() {
 	onlineUUIDs := agent_runtime.GetAllOnlineUUIDs()
 	online := make(map[string]bool, len(onlineUUIDs))
@@ -56,14 +56,14 @@ func CheckCnBlocked() {
 		log.Printf("Failed to load clients for cn-blocked notification: %v", err)
 		return
 	}
-	muted, err := cnBlockedMutedClients(dbcore.GetDBInstance())
+	// 读不到逐节点开关时照常全发（零值即全部通知）：宁可多一条，也别把真被墙漏掉。
+	switches, err := nodenotify.LoadCnBlockedSwitches()
 	if err != nil {
-		// 读不到逐节点开关时照常全发：宁可多一条，也别把真被墙漏掉。
 		log.Printf("Failed to load per-node cn-blocked notification switches: %v", err)
 	}
 	byUUID := make(map[string]models.Client, len(all))
 	for _, c := range all {
-		if !muted[c.UUID] {
+		if !switches.Muted(c.UUID) {
 			byUUID[c.UUID] = c
 		}
 	}
@@ -71,21 +71,6 @@ func CheckCnBlocked() {
 	sendCnBlockEvent(messageevent.CnBlocked, "🚧", changes.Blocked, byUUID)
 	sendCnBlockEvent(messageevent.CnUnblocked, "✅", changes.Recovered, byUUID)
 	sendCnBlockEvent(messageevent.CnBlockedOffline, "📴", changes.Offline, byUUID)
-}
-
-// cnBlockedMutedClients 返回关闭了被墙通知的节点集合。没有配置行的节点按默认（照常通知）处理，不在其中。
-func cnBlockedMutedClients(db *gorm.DB) (map[string]bool, error) {
-	var uuids []string
-	if err := db.Model(&models.OfflineNotification{}).
-		Where("cn_blocked_muted = ?", true).
-		Pluck("client", &uuids).Error; err != nil {
-		return nil, err
-	}
-	muted := make(map[string]bool, len(uuids))
-	for _, uuid := range uuids {
-		muted[uuid] = true
-	}
-	return muted, nil
 }
 
 // sendCnBlockEvent 组装并发送一条聚合通知（同一轮内的多个节点合并为一条消息）。

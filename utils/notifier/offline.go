@@ -9,6 +9,7 @@ import (
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
 	messageevent "github.com/komari-monitor/komari/database/models/messageEvent"
+	"github.com/komari-monitor/komari/database/nodenotify"
 	"github.com/komari-monitor/komari/pkg/config"
 	"github.com/komari-monitor/komari/utils/messageSender"
 	"github.com/komari-monitor/komari/utils/renewal"
@@ -30,15 +31,15 @@ var clientStates sync.Map
 
 // getNotificationConfig 获取指定客户端的通知配置。
 // 返回配置对象和一个布尔值，指示全局和该客户端是否启用通知。
+// 节点还没有配置行时按「新节点默认」新建一行。
 func getNotificationConfig(clientID string) (*models.OfflineNotification, bool) {
 	conf, err := config.GetAs[bool](config.NotificationEnabledKey, false)
 	if err != nil || !conf {
 		return nil, false
 	}
 
-	notiConf := models.OfflineNotification{Client: clientID}
-	db := dbcore.GetDBInstance()
-	if err := db.Model(&models.OfflineNotification{}).Where("client = ?", clientID).FirstOrCreate(&notiConf).Error; err != nil {
+	notiConf, err := nodenotify.Ensure(clientID)
+	if err != nil {
 		log.Printf("Failed to get or create offline notification config for client %s: %v", clientID, err)
 		return nil, false
 	}

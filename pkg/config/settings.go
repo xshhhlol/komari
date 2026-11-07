@@ -46,6 +46,12 @@ type Settings struct {
 	// 节点 IP 被墙/恢复通知（依赖 ping 任务的 block_check 判定）
 	CnBlockedNotificationEnabled bool    `json:"cn_blocked_notification_enabled" default:"true"`
 	TrafficLimitPercentage       float64 `json:"traffic_limit_percentage" default:"80.00"` // 流量限制百分比，默认80.00%
+
+	// 新节点默认（后台「节点通知」页）：还没有单独设置过的节点按这些值通知，见 database/nodenotify
+	OfflineNotificationDefaultEnabled     bool `json:"offline_notification_default_enabled" default:"false"`
+	OfflineNotificationDefaultGracePeriod int  `json:"offline_notification_default_grace_period" default:"180"` // 秒
+	CnBlockedNotificationDefaultEnabled   bool `json:"cn_blocked_notification_default_enabled" default:"true"`
+
 	// Record
 	RecordEnabled          bool `json:"record_enabled" default:"true"`          // 是否启用记录功能
 	RecordPreserveTime     int  `json:"record_preserve_time" default:"720"`     // 记录保留时间，单位小时，默认30天
@@ -93,4 +99,11 @@ const (
 	PingRecordPreserveTimeKey       = "ping_record_preserve_time"
 	UpdatedAtKey                    = "updated_at"
 	XtermjsSettingsKey              = "xtermjs_settings"
+)
+
+// 新节点默认通知设置，见 database/nodenotify。
+const (
+	OfflineNotificationDefaultEnabledKey     = "offline_notification_default_enabled"
+	OfflineNotificationDefaultGracePeriodKey = "offline_notification_default_grace_period"
+	CnBlockedNotificationDefaultEnabledKey   = "cn_blocked_notification_default_enabled"
 )
