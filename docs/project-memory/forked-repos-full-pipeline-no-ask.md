@@ -12,6 +12,7 @@ For **any** code change to one of the three `xshhhlol` forks (komari / komari-we
 1. **Verify** as applicable to the repo (frontend: `tsc`/`eslint`/`npm run build`; backend: `go build`/`go test`).
 2. **Commit** — stage only the feature-relevant files; revert incidental churn (e.g. `package-lock.json` peer/platform metadata, gitignored `dist/`). Commit directly to the fork's default branch (komari `main`, komari-web `radix`, komari-agent `main`).
 3. **Push** to the matching `xshhhlol` remote.
+4. **Publish** the appropriate GitHub Release automatically; do not wait for CI/build results. User explicitly confirmed this standing instruction on 2026-11-15. Release publication does not itself authorize upgrading a live server.
 
 Do **not** end with "want me to push?" — just push.
 
