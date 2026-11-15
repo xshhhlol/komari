@@ -23,6 +23,7 @@ import (
 	d_notification "github.com/komari-monitor/komari/database/notification"
 	"github.com/komari-monitor/komari/database/records"
 	"github.com/komari-monitor/komari/database/tasks"
+	"github.com/komari-monitor/komari/database/traffic"
 	"github.com/komari-monitor/komari/pkg/config"
 	"github.com/komari-monitor/komari/utils"
 	"github.com/komari-monitor/komari/utils/cloudflared"
@@ -60,6 +61,8 @@ func RunServer() {
 		log.Fatalf("Failed to create theme directory: %v", err)
 	}
 	InitDatabase()
+	// 开始接收上报前载入流量游标（首次部署时用历史负载记录回填每日流量）
+	traffic.Init()
 	if utils.VersionHash != "unknown" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -223,6 +226,7 @@ func cleanupScheduledData() {
 func minuteScheduledWork() {
 	cfg, _ := config.GetManyAs[config.Settings]()
 	report_cache.SaveClientReportToDB()
+	traffic.Flush()
 	if !cfg.RecordEnabled {
 		records.DeleteAll()
 		tasks.DeleteAllPingRecords()
@@ -234,6 +238,7 @@ func minuteScheduledWork() {
 func OnShutdown() {
 	auditlog.Log("", "", "server is shutting down", "info")
 	corn.StopAll()
+	traffic.Flush()
 	cloudflared.Shutdown()
 }
 

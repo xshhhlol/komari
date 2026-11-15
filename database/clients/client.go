@@ -10,6 +10,7 @@ import (
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
 	"github.com/komari-monitor/komari/database/tasks"
+	"github.com/komari-monitor/komari/database/traffic"
 	"github.com/komari-monitor/komari/utils"
 	"gorm.io/gorm"
 
@@ -22,7 +23,7 @@ func DeleteClient(clientUuid string) error {
 	if err != nil {
 		return err
 	}
-	return nil
+	return traffic.Forget(clientUuid)
 }
 
 func SaveClientInfo(update map[string]interface{}) error {

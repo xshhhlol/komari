@@ -47,6 +47,8 @@ func registerPublicRoutes(r *gin.Engine) {
 	r.GET("/api/public", jsonRpc.Bind("public:getPublicSettings"))
 	r.GET("/api/version", jsonRpc.Bind("public:getVersion"))
 	r.GET("/api/recent/:uuid", jsonRpc.Bind("public:getClientRecentRecords", jsonRpc.WithPath("uuid")))
+	r.GET("/api/records/traffic", jsonRpc.Bind("public:getTrafficDaily", jsonRpc.WithQuery("uuid", "days")))
+	r.GET("/api/traffic/ranking", jsonRpc.Bind("public:getTrafficRanking", jsonRpc.WithQuery("granularity", "offset")))
 	r.GET("/api/records/load", jsonRpc.Bind("public:getRecordsByUUID", jsonRpc.WithQuery("uuid", "load_type", "hours")))
 	r.GET("/api/records/ping", jsonRpc.Bind("public:getPingRecords", jsonRpc.WithQuery("uuid", "task_id", "hours")))
 	r.GET("/api/task/ping", jsonRpc.Bind("public:getPublicPingTasks"))

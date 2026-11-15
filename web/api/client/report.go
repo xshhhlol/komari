@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/komari-monitor/komari/database/clients"
+	"github.com/komari-monitor/komari/database/traffic"
 	v1 "github.com/komari-monitor/komari/protocol/v1"
 	"github.com/komari-monitor/komari/utils/notifier"
 	agent_runtime "github.com/komari-monitor/komari/web/agent"
@@ -277,6 +278,7 @@ func SaveClientReport(uuid string, report v1.Report) error {
 	}
 	reports = append(reports.([]v1.Report), report)
 	report_cache.Records.Set(uuid, reports, cache.DefaultExpiration)
+	traffic.ObserveReport(uuid, report)
 
 	return nil
 }

@@ -1,0 +1,11 @@
+- [Forked repos (xshhhlol)](forked-repos-use-xshhhlol.md) — komari/komari-web/komari-agent local+remote paths & default branches; always use the xshhhlol forks, never komari-monitor originals
+- [PurCarte theme build/deploy](purcarte-theme-build-deploy.md) — STANDING AUTO-PROCEDURE: any change to the PurCarte theme must auto-run the full pipeline (edit → build with proxy+replace-registry-host=always → copy into backend preinstalledThemes → commit+push backend), never just edit source; user is hands-off with that project
+- [PurCarte UI: compact cards, hover details](purcarte-ui-compact-hover-details.md) — cards keep one stat line (P95 | 丢包率), P50/P95/P99 go in hover; new view-altering toggles default OFF
+- [Full pipeline, no asking](forked-repos-full-pipeline-no-ask.md) — for ANY change to the 3 forks: auto verify → commit (only relevant files) → push to default branch; never stop to ask "want me to push?"
+- [Headless Chrome screenshot hang](headless-chrome-screenshot-hang.md) — Chrome --screenshot 写完不退出、窗口有最小宽度：后台启动+轮询文件+kill，窄屏用容器定宽模拟；需点击用 CDP+mock 后端；访问 127.0.0.1 要 unset http_proxy（否则 502）
+- [Webterm vim freeze root cause](webterm-vim-freeze-root-cause.md) — vite target 降级重写 xterm.js 6.0 的 `||=` 才是 vim 假死真凶（DECRQM 触发 ReferenceError）；komari-web build.target 必须 ≥ es2021，勿信旧的 XTGETTCAP/TERM 结论
+- [PurCarte buttons: approved style](purcarte-button-style-restrained.md) — FINAL: dark slate gradient + inner highlight, sky icons, delete red text, hover DARKENS (`slate`/`slateDanger`); taste swings → preview first; custom button colors & border need `!`
+- [PurCarte: preview before ship](purcarte-visual-preview-before-ship.md) — for look-and-feel changes, render labelled preview images on the real page + `open` them, ship only after the user picks (exception to the no-ask pipeline)
+- [Admin lists: flat + group pills](admin-lists-flat-with-group-pills.md) — komari-web admin tables stay flat; grouping = pill filter above, no section rows
+- [komari-web admin UI taste](komari-web-admin-ui-taste.md) — restrained nn-* admin style (frame + 服务器页 + 节点通知): settings in dialogs, selection-only floating bar, accent fixed indigo, direct light/dark toggle, no search box on 服务器页 (browser find)
+- [Daily traffic feature](traffic-feature.md) — restored Claude task requirements, implementation and verification limits
