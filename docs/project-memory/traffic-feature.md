@@ -9,3 +9,9 @@ Public RPC getTrafficDaily/getTrafficRanking and REST /api/records/traffic, /api
 Verification: Go tests and production theme build; no live-server deployment or browser visual verification performed during initial implementation. Release and panel upgrade still needed to ship to running server.
 
 2026-11-15 redesign: home ranking lives behind a compact statistics-toolbar button and opens a Radix dialog; never render the ranking panel directly on home. Use a solid light/dark dialog surface, compact rows, IP below node name (admin-only), direction columns on desktop, and five absolute usage color bands (<100 GiB, 100–500 GiB, 500 GiB–1 TiB, 1–5 TiB, ≥5 TiB). Browser checked desktop/mobile with sample data. User reiterated dislike of the original full-width panel.
+
+Latest user correction: visual redesigns must be shown as screenshots and approved before publication. The 2.32.2 absolute-position entry overlapped group pills; next revision uses a normal-flow toolbar with a shrinkable group region and fixed-size action region. Current revision is local preview only, pending user approval.
+
+Preview feedback: user wants a visible text-labelled ranking button, not icon-only. Avoid teal/green palettes such as #0d9488 in ranking; use muted slate/blue-violet and warmer high-usage colors. Provide uncropped screenshots showing the actual entry. Keep this redesign local until approval.
+
+User approved the v4 preview for publication. Color replacement is scoped to traffic-ranking CSS/component; no global palette or unrelated cards/charts changed. The only external layout change is the stats-toolbar flex layout required to prevent button/group overlap.
