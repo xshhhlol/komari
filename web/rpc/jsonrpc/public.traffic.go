@@ -66,6 +66,8 @@ func publicTrafficRanking(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 		return nil, rpc.MakeError(rpc.InternalError, "Node query failed", nil)
 	}
 	type entry struct {
+		IPv4 string `json:"ipv4,omitempty"`
+		IPv6 string `json:"ipv6,omitempty"`
 		UUID string `json:"uuid"`
 		Name string `json:"name"`
 		Up   int64  `json:"up"`
@@ -77,7 +79,11 @@ func publicTrafficRanking(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 			continue
 		}
 		u := usage[n.UUID]
-		rows = append(rows, entry{n.UUID, n.Name, u.Up, u.Down})
+		item := entry{UUID: n.UUID, Name: n.Name, Up: u.Up, Down: u.Down}
+		if isLoginFromCtx(ctx) {
+			item.IPv4, item.IPv6 = n.IPv4, n.IPv6
+		}
+		rows = append(rows, item)
 	}
 	sort.Slice(rows, func(i, j int) bool {
 		a, b := rows[i], rows[j]

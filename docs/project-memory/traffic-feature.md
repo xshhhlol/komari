@@ -7,3 +7,5 @@ Implementation: database/traffic accumulates adjacent reports, persists daily us
 Public RPC getTrafficDaily/getTrafficRanking and REST /api/records/traffic, /api/traffic/ranking apply existing hidden-node filtering. PurCarte TrafficPanel provides 7/30/90-day stacked bars and day/week/month rankings with previous-period navigation. Auto refresh every minute. Theme source resides in sibling komari-theme-purcarte, artifacts embedded in backend.
 
 Verification: Go tests and production theme build; no live-server deployment or browser visual verification performed during initial implementation. Release and panel upgrade still needed to ship to running server.
+
+2026-11-15 redesign: home ranking lives behind a compact statistics-toolbar button and opens a Radix dialog; never render the ranking panel directly on home. Use a solid light/dark dialog surface, compact rows, IP below node name (admin-only), direction columns on desktop, and five absolute usage color bands (<100 GiB, 100–500 GiB, 500 GiB–1 TiB, 1–5 TiB, ≥5 TiB). Browser checked desktop/mobile with sample data. User reiterated dislike of the original full-width panel.
