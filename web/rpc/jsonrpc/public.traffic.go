@@ -70,6 +70,7 @@ func publicTrafficRanking(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 		IPv6 string `json:"ipv6,omitempty"`
 		UUID string `json:"uuid"`
 		Name string `json:"name"`
+		Tags string `json:"tags"`
 		Up   int64  `json:"up"`
 		Down int64  `json:"down"`
 	}
@@ -79,7 +80,7 @@ func publicTrafficRanking(ctx context.Context, req *rpc.JsonRpcRequest) (any, *r
 			continue
 		}
 		u := usage[n.UUID]
-		item := entry{UUID: n.UUID, Name: n.Name, Up: u.Up, Down: u.Down}
+		item := entry{UUID: n.UUID, Name: n.Name, Tags: n.Tags, Up: u.Up, Down: u.Down}
 		if isLoginFromCtx(ctx) {
 			item.IPv4, item.IPv6 = n.IPv4, n.IPv6
 		}

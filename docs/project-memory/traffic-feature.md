@@ -15,3 +15,11 @@ Latest user correction: visual redesigns must be shown as screenshots and approv
 Preview feedback: user wants a visible text-labelled ranking button, not icon-only. Avoid teal/green palettes such as #0d9488 in ranking; use muted slate/blue-violet and warmer high-usage colors. Provide uncropped screenshots showing the actual entry. Keep this redesign local until approval.
 
 User approved the v4 preview for publication. Color replacement is scoped to traffic-ranking CSS/component; no global palette or unrelated cards/charts changed. The only external layout change is the stats-toolbar flex layout required to prevent button/group overlap.
+
+New pending preview: user requests more color (previous design too gray), still no teal. Ranking response now includes existing semicolon-separated node tags, shown as a separate badge column after node. Brighter blue/violet/gold summary cards and usage colors are scoped to dialog. Desktop/mobile sample-data previews generated; awaiting approval before push/release.
+
+Latest preview refinement: shrink header, toolbar and summary; dialog fixed height with flexible scrolling list so switching day/week/month, loading and empty results never move or resize the window. Show only IPv4, never IPv6, in ranking. Browser geometry checks passed for many/one/zero rows on desktop/mobile. Still pending visual approval.
+
+User rejected the compressed top area: restore the previous spacious title/date/three colored summary cards. Retain fixed window size, independent tags column and IPv4-only rendering. Await approval before publishing.
+
+User approved publication of the restored upper layout with brighter summary cards, separate node tags, IPv4-only display and fixed dialog dimensions. Release this version; do not wait for CI completion.
