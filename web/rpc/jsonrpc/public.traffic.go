@@ -37,7 +37,7 @@ func publicTrafficDaily(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc
 	if err != nil {
 		return nil, rpc.MakeError(rpc.InternalError, "Traffic query failed", nil)
 	}
-	return map[string]any{"records": rows}, nil
+	return map[string]any{"records": rows, "start": now.AddDate(0, 0, 1-days).Format(time.DateOnly), "end": now.Format(time.DateOnly)}, nil
 }
 func publicTrafficRanking(ctx context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
 	var p struct {

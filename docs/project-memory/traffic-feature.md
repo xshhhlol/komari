@@ -23,3 +23,9 @@ Latest preview refinement: shrink header, toolbar and summary; dialog fixed heig
 User rejected the compressed top area: restore the previous spacious title/date/three colored summary cards. Retain fixed window size, independent tags column and IPv4-only rendering. Await approval before publishing.
 
 User approved publication of the restored upper layout with brighter summary cards, separate node tags, IPv4-only display and fixed dialog dimensions. Release this version; do not wait for CI completion.
+
+2026-11-17 daily chart redesign (local preview pending approval): replace CSS bars with Recharts as used by PingChart; left axis with auto byte unit, dashed grid, immediate hover cursor/tooltip showing day/up/down/total. Use full 7/30/90 calendar slots anchored to server end date; missing rows stay null and tooltip says no record. Explicit bar widths prevent sparse data from stretching. Traffic daily API adds start/end strings in application timezone. Browser checked full, sparse, empty, mobile, missing-date tooltip and 7/90-day widths; no runtime errors. Do not publish until user approves screenshots.
+
+Daily-chart color preview revised to amber upload and muted indigo download (gradient, legend and tooltip dots together); awaiting approval.
+
+2026-11-17: user approved the amber/indigo daily-chart preview and publication. Ship the Recharts axis/hover/calendar-slot redesign with this palette.
