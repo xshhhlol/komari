@@ -1,6 +1,7 @@
 package notifier
 
 import (
+	"github.com/komari-monitor/komari/database/eventlog"
 	"log"
 	"time"
 
@@ -37,6 +38,27 @@ func CheckCnBlocked() {
 		return
 	}
 
+	all, err := clients.GetAllClientBasicInfo()
+	if err != nil {
+		log.Printf("Failed to load clients for cn-blocked notification: %v", err)
+		return
+	}
+	byUUID := make(map[string]models.Client, len(all))
+	for _, c := range all {
+		byUUID[c.UUID] = c
+	}
+	for _, group := range []struct {
+		kind string
+		ids  []string
+	}{
+		{messageevent.CnBlocked, changes.Blocked}, {messageevent.CnUnblocked, changes.Recovered}, {messageevent.CnBlockedOffline, changes.Offline},
+	} {
+		for _, uuid := range group.ids {
+			if client, ok := byUUID[uuid]; ok {
+				eventlog.NodeChange(group.kind, client)
+			}
+		}
+	}
 	cfg, err := config.GetMany(map[string]any{
 		config.NotificationEnabledKey:          false,
 		config.CnBlockedNotificationEnabledKey: true,
@@ -51,20 +73,15 @@ func CheckCnBlocked() {
 		return
 	}
 
-	all, err := clients.GetAllClientBasicInfo()
-	if err != nil {
-		log.Printf("Failed to load clients for cn-blocked notification: %v", err)
-		return
-	}
 	// 读不到逐节点开关时照常全发（零值即全部通知）：宁可多一条，也别把真被墙漏掉。
 	switches, err := nodenotify.LoadCnBlockedSwitches()
 	if err != nil {
 		log.Printf("Failed to load per-node cn-blocked notification switches: %v", err)
 	}
-	byUUID := make(map[string]models.Client, len(all))
+
 	for _, c := range all {
-		if !switches.Muted(c.UUID) {
-			byUUID[c.UUID] = c
+		if switches.Muted(c.UUID) {
+			delete(byUUID, c.UUID)
 		}
 	}
 

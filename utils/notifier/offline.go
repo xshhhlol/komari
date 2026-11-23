@@ -1,6 +1,7 @@
 package notifier
 
 import (
+	"github.com/komari-monitor/komari/database/eventlog"
 	"log"
 	"sync"
 	"time"
@@ -34,9 +35,7 @@ var clientStates sync.Map
 // 节点还没有配置行时按「新节点默认」新建一行。
 func getNotificationConfig(clientID string) (*models.OfflineNotification, bool) {
 	conf, err := config.GetAs[bool](config.NotificationEnabledKey, false)
-	if err != nil || !conf {
-		return nil, false
-	}
+	globalEnabled := err == nil && conf
 
 	notiConf, err := nodenotify.Ensure(clientID)
 	if err != nil {
@@ -44,7 +43,7 @@ func getNotificationConfig(clientID string) (*models.OfflineNotification, bool) 
 		return nil, false
 	}
 
-	return &notiConf, notiConf.Enable
+	return &notiConf, globalEnabled && notiConf.Enable
 }
 
 // getOrInitState 从 sync.Map 获取客户端状态，不存在则新建并存储。
@@ -62,7 +61,7 @@ func OfflineNotification(clientID string, endedConnectionID int64) {
 	}
 
 	notiConf, enabled := getNotificationConfig(clientID)
-	if !enabled {
+	if notiConf == nil {
 		return
 	}
 
@@ -105,6 +104,11 @@ func OfflineNotification(clientID string, endedConnectionID int64) {
 		state.pendingOfflineSince = time.Time{}
 		state.isConnExist = false
 
+		eventlog.NodeChange(messageevent.Offline, client)
+		if !enabled {
+			return
+		}
+
 		// Send notification
 		// 正文带上节点 IP：掉线后要按 IP 去查/去连，通知里直接给出省得再翻面板。
 		message := formatClientsMessage([]models.Client{client}, messageSender.SupportsHTML())
@@ -137,9 +141,6 @@ func OnlineNotification(clientID string, connectionID int64) {
 	// 上线时检测续费
 	renewal.CheckAndAutoRenewal(client)
 	_, enabled := getNotificationConfig(clientID)
-	if !enabled {
-		return
-	}
 
 	state := getOrInitState(clientID)
 
@@ -173,6 +174,11 @@ func OnlineNotification(clientID string, connectionID int64) {
 		return
 	} else {
 		state.isConnExist = true
+	}
+
+	eventlog.NodeChange(messageevent.Online, client)
+	if !enabled {
+		return
 	}
 
 	// 规则4：客户端离线足够久已通知（或未待离线），现在重新上线，发送上线通知。

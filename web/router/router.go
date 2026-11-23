@@ -20,6 +20,7 @@ func Register(r *gin.Engine) {
 		c.String(200, "pong")
 	})
 
+	r.GET(api.EventFeedPath, api.ReadEvents)
 	registerPublicRoutes(r)
 	registerAgentRoutes(r)
 	registerAdminRoutes(r)

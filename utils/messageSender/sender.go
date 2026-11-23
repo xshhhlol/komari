@@ -3,6 +3,7 @@ package messageSender
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/komari-monitor/komari/database/eventlog"
 	"html"
 	"log"
 	"strings"
@@ -104,6 +105,11 @@ func SendTextMessage(message string, title string) error {
 	return err
 }
 func SendEvent(event models.EventMessage) error {
+	// Node transitions are recorded at detection time, before notification filtering.
+	switch event.Event {
+	case "Alert", "Expire", "Renew", "Login", "Traffic", "DReport", "WReport", "MReport":
+		eventlog.Record(event)
+	}
 	if CurrentProvider() == nil {
 		return fmt.Errorf("message sender provider is not initialized")
 	}

@@ -43,6 +43,7 @@ func CheckExpire() {
 		}
 
 		var clientLeadToExpire []clientToExpireInfo
+		var involved []models.Client
 
 		for _, client := range clients_all {
 			clientExpireTime := client.ExpiredAt.ToTime()
@@ -57,6 +58,7 @@ func CheckExpire() {
 				remainingDuration := clientExpireTime.Sub(checkTime)
 				daysLeft := int(math.Ceil(remainingDuration.Hours() / 24))
 
+				involved = append(involved, client)
 				clientLeadToExpire = append(clientLeadToExpire, clientToExpireInfo{
 					Name:     client.Name,
 					DaysLeft: daysLeft,
@@ -71,6 +73,7 @@ func CheckExpire() {
 			}
 			messageSender.SendEvent(models.EventMessage{
 				Event:   messageevent.Expire,
+				Clients: involved,
 				Time:    time.Now(),
 				Message: message,
 				Emoji:   "⏳",

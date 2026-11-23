@@ -26,6 +26,12 @@ const (
 // 负责识别当前请求者身份（Admin / Client / Guest），并写入 Context。
 func IdentityMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// The event feed authenticates locally. Never query client tokens with its credential.
+		if c.Request.URL.Path == EventFeedPath && c.Request.Method == http.MethodGet {
+			c.Set("role", RoleGuest)
+			c.Next()
+			return
+		}
 		// 1. API Key 认证
 		apiKey := c.GetHeader("Authorization")
 		if isApiKeyValid(apiKey) {
@@ -121,6 +127,10 @@ func PrivateSiteMiddleware() gin.HandlerFunc {
 		}
 
 		path := c.Request.URL.Path
+		if path == EventFeedPath && c.Request.Method == http.MethodGet {
+			c.Next() // ReadEvents enforces its own read-only credential.
+			return
+		}
 
 		// 公开路径直接放行
 		for _, p := range publicPaths {
