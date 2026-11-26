@@ -13,6 +13,7 @@ import (
 
 func init() {
 	reg("getTasks", adminGetTasks, "List all exec tasks with results")
+	reg("getBenchmarkTasks", adminGetBenchmarkTasks, "List benchmark reports")
 	reg("getTaskById", adminGetTaskById, "Get an exec task by task_id")
 	reg("getTasksByClientId", adminGetTasksByClientId, "List tasks assigned to a client")
 	reg("getSpecificTaskResult", adminGetSpecificTaskResult, "Get a task result for a client")
@@ -135,4 +136,16 @@ func adminGetTaskResultsByTaskId(_ context.Context, req *rpc.JsonRpcRequest) (an
 		return nil, rpc.MakeError(rpc.NotFound, "No results found for this task", nil)
 	}
 	return results, nil
+}
+
+func adminGetBenchmarkTasks(_ context.Context, _ *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
+	list, err := tasks.GetBenchmarkTasks()
+	if err != nil {
+		return nil, rpc.MakeError(rpc.InternalError, "Failed to retrieve benchmark reports", err.Error())
+	}
+	out := make([]map[string]any, 0, len(list))
+	for _, task := range list {
+		out = append(out, map[string]any{"task_id": task.TaskId, "results": projectTaskResults(task.Results)})
+	}
+	return out, nil
 }

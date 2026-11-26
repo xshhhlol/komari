@@ -5,6 +5,7 @@ import (
 
 	"github.com/komari-monitor/komari/database/dbcore"
 	"github.com/komari-monitor/komari/database/models"
+	"gorm.io/gorm"
 )
 
 func CreateTask(taskId string, clients []string, command string) error {
@@ -103,6 +104,20 @@ func SaveTaskResult(taskId, clientId, result string, exitCode int, timestamp mod
 		}).Error
 }
 
+// Benchmark task results are reports, not transient monitoring records.
+const BenchmarkCommandPrefix = "# komari-nodequality-report-v1\n"
+
+func GetBenchmarkTasks() ([]models.Task, error) {
+	var result []models.Task
+	err := dbcore.GetDBInstance().Where("command LIKE ?", BenchmarkCommandPrefix+"%").Preload("Results").Find(&result).Error
+	return result, err
+}
+
 func ClearTaskResultsByTimeBefore(before time.Time) error {
-	return dbcore.GetDBInstance().Where("created_at < ?", before.Format(time.RFC3339)).Delete(&models.TaskResult{}).Error
+	return clearTaskResultsByTimeBefore(dbcore.GetDBInstance(), before)
+}
+
+func clearTaskResultsByTimeBefore(db *gorm.DB, before time.Time) error {
+	reports := db.Model(&models.Task{}).Select("task_id").Where("command LIKE ?", BenchmarkCommandPrefix+"%")
+	return db.Where("created_at < ? AND task_id NOT IN (?)", before.Format(time.RFC3339), reports).Delete(&models.TaskResult{}).Error
 }

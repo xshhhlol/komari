@@ -128,6 +128,7 @@ func registerAdminRoutes(r *gin.Engine) {
 	task := g.Group("/task")
 	{
 		task.GET("/all", jsonRpc.Bind("admin:getTasks"))
+		task.GET("/benchmarks", jsonRpc.Bind("admin:getBenchmarkTasks"))
 		task.POST("/exec", api.RequireSensitive2FA(), jsonRpc.Bind("admin:exec"))
 		task.GET("/:task_id", jsonRpc.Bind("admin:getTaskById", jsonRpc.WithPath("task_id")))
 		task.GET("/:task_id/result", jsonRpc.Bind("admin:getTaskResultsByTaskId", jsonRpc.WithPath("task_id")))
