@@ -129,6 +129,10 @@ func registerAdminRoutes(r *gin.Engine) {
 	{
 		task.GET("/all", jsonRpc.Bind("admin:getTasks"))
 		task.GET("/benchmarks", jsonRpc.Bind("admin:getBenchmarkTasks"))
+		task.GET("/benchmark-node/:uuid", jsonRpc.Bind("admin:getNodeBenchmarkResults", jsonRpc.WithPath("uuid")))
+		task.GET("/benchmark-command", jsonRpc.Bind("admin:getBenchmarkCommand"))
+		task.GET("/benchmark-settings", jsonRpc.Bind("admin:getBenchmarkSettings"))
+		task.POST("/benchmark-settings", jsonRpc.Bind("admin:setBenchmarkSettings"))
 		task.POST("/exec", api.RequireSensitive2FA(), jsonRpc.Bind("admin:exec"))
 		task.GET("/:task_id", jsonRpc.Bind("admin:getTaskById", jsonRpc.WithPath("task_id")))
 		task.GET("/:task_id/result", jsonRpc.Bind("admin:getTaskResultsByTaskId", jsonRpc.WithPath("task_id")))

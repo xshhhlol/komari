@@ -14,6 +14,7 @@ import (
 func init() {
 	reg("getTasks", adminGetTasks, "List all exec tasks with results")
 	reg("getBenchmarkTasks", adminGetBenchmarkTasks, "List benchmark reports")
+	reg("getNodeBenchmarkResults", adminGetNodeBenchmarkResults, "List benchmark reports for a node")
 	reg("getTaskById", adminGetTaskById, "Get an exec task by task_id")
 	reg("getTasksByClientId", adminGetTasksByClientId, "List tasks assigned to a client")
 	reg("getSpecificTaskResult", adminGetSpecificTaskResult, "Get a task result for a client")
@@ -146,6 +147,24 @@ func adminGetBenchmarkTasks(_ context.Context, _ *rpc.JsonRpcRequest) (any, *rpc
 	out := make([]map[string]any, 0, len(list))
 	for _, task := range list {
 		out = append(out, map[string]any{"task_id": task.TaskId, "results": projectTaskResults(task.Results)})
+	}
+	return out, nil
+}
+
+func adminGetNodeBenchmarkResults(_ context.Context, req *rpc.JsonRpcRequest) (any, *rpc.JsonRpcError) {
+	var params struct {
+		UUID string `json:"uuid"`
+	}
+	if err := req.BindParams(&params); err != nil || params.UUID == "" {
+		return nil, rpc.MakeError(rpc.InvalidParams, "Node UUID is required", nil)
+	}
+	results, err := tasks.GetBenchmarkResultsForClient(params.UUID)
+	if err != nil {
+		return nil, rpc.MakeError(rpc.InternalError, "Failed to retrieve benchmark reports", err.Error())
+	}
+	out := make([]map[string]any, 0, len(results))
+	for _, result := range results {
+		out = append(out, map[string]any{"task_id": result.TaskId, "client": result.Client, "result": result.Result, "exit_code": result.ExitCode, "created_at": result.CreatedAt, "finished_at": result.FinishedAt})
 	}
 	return out, nil
 }

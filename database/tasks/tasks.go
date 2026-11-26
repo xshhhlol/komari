@@ -113,6 +113,15 @@ func GetBenchmarkTasks() ([]models.Task, error) {
 	return result, err
 }
 
+// GetBenchmarkResultsForClient avoids loading other nodes' potentially large output.
+func GetBenchmarkResultsForClient(client string) ([]models.TaskResult, error) {
+	db := dbcore.GetDBInstance()
+	reports := db.Model(&models.Task{}).Select("task_id").Where("command LIKE ?", BenchmarkCommandPrefix+"%")
+	var results []models.TaskResult
+	err := db.Where("client = ? AND task_id IN (?)", client, reports).Order("created_at DESC").Find(&results).Error
+	return results, err
+}
+
 func ClearTaskResultsByTimeBefore(before time.Time) error {
 	return clearTaskResultsByTimeBefore(dbcore.GetDBInstance(), before)
 }
