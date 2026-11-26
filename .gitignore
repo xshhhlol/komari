@@ -10,6 +10,7 @@
 __debug*
 
 # local development data
+/web/public/data/
 komari.db
 /data
 /utils/geoip/data
